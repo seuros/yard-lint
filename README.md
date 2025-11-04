@@ -200,45 +200,42 @@ Documentation/UndocumentedObjects:
 
 ### Available Validators
 
-#### Documentation Validators
+| Validator | Description | Default | Configuration Options |
+|-----------|-------------|---------|----------------------|
+| **Documentation Validators** |
+| `Documentation/UndocumentedObjects` | Checks for classes, modules, and methods without documentation | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+| `Documentation/UndocumentedMethodArguments` | Checks for method parameters without `@param` tags | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+| `Documentation/UndocumentedBooleanMethods` | Checks that question mark methods document their boolean return | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+| **Tags Validators** |
+| `Tags/Order` | Enforces consistent ordering of YARD tags | Enabled (convention) | `Enabled`, `Severity`, `Exclude`, `EnforcedOrder` |
+| `Tags/InvalidTypes` | Validates type definitions in `@param`, `@return`, `@option` tags | Enabled (warning) | `Enabled`, `Severity`, `Exclude`, `ValidatedTags`, `ExtraTypes` |
+| `Tags/ApiTags` | Enforces `@api` tags on public objects | Disabled (opt-in) | `Enabled`, `Severity`, `Exclude`, `AllowedApis` |
+| `Tags/OptionTags` | Requires `@option` tags for methods with options parameters | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+| **Warnings Validators** |
+| `Warnings/UnknownTag` | Detects unknown YARD tags | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| `Warnings/UnknownDirective` | Detects unknown YARD directives | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| `Warnings/InvalidTagFormat` | Detects malformed tag syntax | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| `Warnings/InvalidDirectiveFormat` | Detects malformed directive syntax | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| `Warnings/DuplicatedParameterName` | Detects duplicate `@param` tags | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| `Warnings/UnknownParameterName` | Detects `@param` tags for non-existent parameters | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
+| **Semantic Validators** |
+| `Semantic/AbstractMethods` | Ensures `@abstract` methods don't have real implementations | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
 
-- **Documentation/UndocumentedObjects**: Checks for classes, modules, and methods without documentation
-- **Documentation/UndocumentedMethodArguments**: Checks for method parameters without `@param` tags
-- **Documentation/UndocumentedBooleanMethods**: Checks that question mark methods document their boolean return
+### Global Configuration
 
-#### Tags Validators
-
-- **Tags/Order**: Enforces consistent ordering of YARD tags (configure with `EnforcedOrder`)
-- **Tags/InvalidTypes**: Validates type definitions in `@param`, `@return`, `@option` tags (configure with `ValidatedTags` and `ExtraTypes`)
-- **Tags/ApiTags**: Enforces `@api` tags on public objects (opt-in, configure with `AllowedApis`)
-- **Tags/OptionTags**: Requires `@option` tags for methods with options parameters
-
-#### Warnings Validators
-
-- **Warnings/UnknownTag**: Detects unknown YARD tags
-- **Warnings/UnknownDirective**: Detects unknown YARD directives
-- **Warnings/InvalidTagFormat**: Detects malformed tag syntax
-- **Warnings/InvalidDirectiveFormat**: Detects malformed directive syntax
-- **Warnings/DuplicatedParameterName**: Detects duplicate `@param` tags
-- **Warnings/UnknownParameterName**: Detects `@param` tags for non-existent parameters
-
-#### Semantic Validators
-
-- **Semantic/AbstractMethods**: Ensures `@abstract` methods don't have real implementations
-
-### Global Configuration Options
-
-- **AllValidators/YardOptions**: Array of YARD command-line options (e.g., `--private`, `--protected`)
-- **AllValidators/Exclude**: Array of glob patterns to exclude from linting
-- **AllValidators/FailOnSeverity**: Exit with error code for this severity level and above (`error`, `warning`, `convention`, `never`)
+| Option | Description | Default | Type |
+|--------|-------------|---------|------|
+| `AllValidators/YardOptions` | YARD command-line options (e.g., `--private`, `--protected`) | `[]` | Array of strings |
+| `AllValidators/Exclude` | File patterns to exclude from linting | `['\.git', 'vendor/**/*', 'node_modules/**/*']` | Array of glob patterns |
+| `AllValidators/FailOnSeverity` | Exit with error code for this severity level and above | `warning` | `error`, `warning`, `convention`, or `never` |
 
 ## Severity Levels
 
-YARD-Lint categorizes offenses into three severity levels:
-
-- **error**: Critical issues (unknown tags, invalid formats, malformed syntax)
-- **warning**: Missing documentation, invalid type definitions, semantic issues
-- **convention**: Style issues (tag ordering, formatting)
+| Severity | Description | Examples |
+|----------|-------------|----------|
+| **error** | Critical issues that prevent proper documentation parsing | Unknown tags, invalid formats, malformed syntax, duplicate parameters |
+| **warning** | Missing or incorrect documentation | Undocumented methods, missing `@param` tags, invalid type definitions, semantic issues |
+| **convention** | Style and consistency issues | Tag ordering, formatting preferences |
 
 ## Integration with CI
 
@@ -246,19 +243,7 @@ YARD-Lint categorizes offenses into three severity levels:
 
 ```yaml
 - name: Run YARD Lint
-  run: |
-    bundle exec yard-lint lib/
-```
-
-### With RuboCop
-
-You can run YARD-Lint alongside RuboCop in your CI pipeline:
-
-```yaml
-- name: Run Linters
-  run: |
-    bundle exec rubocop
-    bundle exec yard-lint lib/
+  run: bundle exec yard-lint lib/
 ```
 
 ## CLI Options
