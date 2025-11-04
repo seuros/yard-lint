@@ -6,7 +6,7 @@ module Yard
     class Result
       attr_reader :warnings, :undocumented, :undocumented_method_arguments,
         :invalid_tags_types, :invalid_tags_order, :api_tags,
-        :abstract_methods, :option_tags
+        :abstract_methods, :option_tags, :config
 
       # Severity levels for different offense types
       # @return [String] severity level for errors
@@ -17,7 +17,8 @@ module Yard
       SEVERITY_CONVENTION = 'convention'
 
       # @param data [Hash] parsed data from validators
-      def initialize(data)
+      # @param config [Yard::Lint::Config, nil] configuration object for severity lookup
+      def initialize(data, config = nil)
         @warnings = data[:warnings] || []
         @undocumented = data[:undocumented] || []
         @undocumented_method_arguments = data[:undocumented_method_arguments] || []
@@ -26,6 +27,7 @@ module Yard
         @api_tags = data[:api_tags] || []
         @abstract_methods = data[:abstract_methods] || []
         @option_tags = data[:option_tags] || []
+        @config = config
       end
 
       # Returns all offenses as a flat array
@@ -105,8 +107,12 @@ module Yard
       # @return [Array<Hash>] array of warning offenses
       def build_warning_offenses
         warnings.map do |warning|
+          # Map warning name to validator name for severity lookup
+          validator_name = warning_name_to_validator(warning[:name])
+          severity = configured_severity(validator_name, SEVERITY_ERROR)
+
           {
-            severity: SEVERITY_ERROR,
+            severity: severity,
             type: 'line',
             name: warning[:name],
             message: warning[:message],
@@ -120,8 +126,10 @@ module Yard
       # @return [Array<Hash>] array of undocumented offenses
       def build_undocumented_offenses
         undocumented.map do |offense|
+          severity = configured_severity('Documentation/UndocumentedObjects', SEVERITY_WARNING)
+
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'line',
             name: 'UndocumentedObject',
             message: "Documentation required for `#{offense[:element]}`",
@@ -134,9 +142,11 @@ module Yard
       # Build undocumented method arguments offenses (warnings)
       # @return [Array<Hash>] array of undocumented method arguments offenses
       def build_undocumented_method_arguments_offenses
+        severity = configured_severity('Documentation/UndocumentedMethodArguments', SEVERITY_WARNING)
+
         undocumented_method_arguments.map do |offense|
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'method',
             name: 'UndocumentedMethodArgument',
             message: "The `#{offense[:method_name]}` method is missing documentation " \
@@ -150,9 +160,11 @@ module Yard
       # Build invalid tags types offenses (warnings)
       # @return [Array<Hash>] array of invalid tags types offenses
       def build_invalid_tags_types_offenses
+        severity = configured_severity('Tags/InvalidTypes', SEVERITY_WARNING)
+
         invalid_tags_types.map do |offense|
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'method',
             name: 'InvalidTagType',
             message: "The `#{offense[:method_name]}` has at least one tag " \
@@ -166,6 +178,8 @@ module Yard
       # Build invalid tags order offenses (conventions)
       # @return [Array<Hash>] array of invalid tags order offenses
       def build_invalid_tags_order_offenses
+        severity = configured_severity('Tags/Order', SEVERITY_CONVENTION)
+
         invalid_tags_order.map do |offense|
           expected_order = offense[:order]
                            .to_s
@@ -174,7 +188,7 @@ module Yard
                            .join(', ')
 
           {
-            severity: SEVERITY_CONVENTION,
+            severity: severity,
             type: 'method',
             name: 'InvalidTagsOrder',
             message: "The `#{offense[:method_name]}` has yard tags in an invalid order. " \
@@ -188,9 +202,11 @@ module Yard
       # Build API tag offenses (warnings)
       # @return [Array<Hash>] array of API tag offenses
       def build_api_tags_offenses
+        severity = configured_severity('Tags/ApiTags', SEVERITY_WARNING)
+
         api_tags.map do |offense|
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'line',
             name: offense[:name],
             message: offense[:message],
@@ -203,9 +219,11 @@ module Yard
       # Build abstract method offenses (warnings)
       # @return [Array<Hash>] array of abstract method offenses
       def build_abstract_methods_offenses
+        severity = configured_severity('Semantic/AbstractMethods', SEVERITY_WARNING)
+
         abstract_methods.map do |offense|
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'method',
             name: offense[:name],
             message: offense[:message],
@@ -218,9 +236,11 @@ module Yard
       # Build option tag offenses (warnings)
       # @return [Array<Hash>] array of option tag offenses
       def build_option_tags_offenses
+        severity = configured_severity('Tags/OptionTags', SEVERITY_WARNING)
+
         option_tags.map do |offense|
           {
-            severity: SEVERITY_WARNING,
+            severity: severity,
             type: 'method',
             name: offense[:name],
             message: offense[:message],
@@ -228,6 +248,23 @@ module Yard
             location_line: offense[:line]
           }
         end
+      end
+
+      # Get configured severity or default
+      # @param validator_name [String] full validator name
+      # @param default [String] default severity if config not available
+      # @return [String] severity level
+      def configured_severity(validator_name, default)
+        return default unless config
+
+        config.validator_severity(validator_name)
+      end
+
+      # Map warning name to validator name
+      # @param name [String] warning name (e.g., 'UnknownTag')
+      # @return [String] validator name (e.g., 'Warnings/UnknownTag')
+      def warning_name_to_validator(name)
+        "Warnings/#{name}"
       end
     end
   end

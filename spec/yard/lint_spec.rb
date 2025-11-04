@@ -57,7 +57,7 @@ RSpec.describe Yard::Lint do
   describe '.load_config' do
     it 'loads config from specified file' do
       config_file = '/tmp/test-config.yml'
-      File.write(config_file, "options:\n  - --private\n")
+      File.write(config_file, "AllValidators:\n  YardOptions:\n    - --private\n")
 
       config = described_class.load_config(config_file)
 

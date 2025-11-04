@@ -1,37 +1,103 @@
-# YARD Lint configuration
+# YARD Lint configuration (New hierarchical format)
 # This project uses itself for documentation linting
+#
+# For detailed configuration options, see:
+# https://github.com/Mensfeld/yard-lint#configuration
 
-tags_order:
-  - param
-  - option
-  - yield
-  - yieldparam
-  - yieldreturn
-  - return
-  - raise
-  - see
-  - example
-  - note
-  - todo
+# Global settings for all validators
+AllValidators:
+  # YARD command-line options
+  YardOptions:
+    - --private
+    - --protected
 
-invalid_tags_names:
-  - param
-  - option
-  - return
-  - yieldreturn
+  # Global file exclusion patterns
+  Exclude:
+    - '\.git'
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'spec/**/*'
+    - 'tmp/**/*'
 
-extra_types:
-  - []
+  # Exit code behavior (error, warning, convention, never)
+  FailOnSeverity: warning
 
-options:
-  - --private
-  - --protected
+# Documentation validators - checks for missing documentation
+Documentation:
+  Enabled: true
 
-exclude:
-  - '\.git'
-  - 'vendor/**/*'
-  - 'node_modules/**/*'
-  - 'spec/**/*'
-  - 'tmp/**/*'
+Documentation/UndocumentedObjects:
+  Description: 'Checks for classes, modules, and methods without documentation.'
+  Enabled: true
+  Severity: warning
 
-fail_on_severity: warning
+Documentation/UndocumentedMethodArguments:
+  Description: 'Checks for method parameters without @param tags.'
+  Enabled: true
+  Severity: warning
+
+Documentation/UndocumentedBooleanMethods:
+  Description: 'Checks that question mark methods document their boolean return.'
+  Enabled: true
+  Severity: warning
+
+# Tags validators - validates YARD tag quality
+Tags:
+  Enabled: true
+
+Tags/Order:
+  Description: 'Enforces consistent ordering of YARD tags.'
+  Enabled: true
+  Severity: convention
+  EnforcedOrder:
+    - param
+    - option
+    - yield
+    - yieldparam
+    - yieldreturn
+    - return
+    - raise
+    - see
+    - example
+    - note
+    - todo
+
+Tags/InvalidTypes:
+  Description: 'Validates type definitions in @param, @return, @option tags.'
+  Enabled: true
+  Severity: warning
+  ValidatedTags:
+    - param
+    - option
+    - return
+    - yieldreturn
+  ExtraTypes:
+    - []
+
+Tags/ApiTags:
+  Description: 'Enforces @api tags on public objects.'
+  Enabled: false  # Opt-in validator
+  Severity: warning
+  AllowedApis:
+    - public
+    - private
+    - internal
+
+Tags/OptionTags:
+  Description: 'Requires @option tags for methods with options parameters.'
+  Enabled: true
+  Severity: warning
+
+# Warnings validators - catches YARD parser errors
+Warnings:
+  Enabled: true
+  Severity: error
+
+# Semantic validators - validates code semantics
+Semantic:
+  Enabled: true
+
+Semantic/AbstractMethods:
+  Description: 'Ensures @abstract methods do not have real implementations.'
+  Enabled: true
+  Severity: warning

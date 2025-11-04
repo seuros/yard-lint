@@ -98,56 +98,107 @@ YARD-Lint can be configured in three ways (in order of precedence):
 
 ### Configuration File
 
-Create a `.yard-lint.yml` file in your project root:
+Create a `.yard-lint.yml` file in your project root using the **new hierarchical format** (similar to RuboCop):
 
 ```yaml
 # .yard-lint.yml
-tags_order:
-  - param
-  - option
-  - yield
-  - yieldparam
-  - yieldreturn
-  - return
-  - raise
-  - see
-  - example
-  - note
-  - todo
+# Global settings for all validators
+AllValidators:
+  # YARD command-line options
+  YardOptions:
+    - --private
+    - --protected
 
-invalid_tags_names:
-  - param
-  - option
-  - return
-  - yieldreturn
+  # Global file exclusion patterns
+  Exclude:
+    - '\.git'
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'spec/**/*'
 
-extra_types:
-  - CustomType
-  - MyType
+  # Exit code behavior (error, warning, convention, never)
+  FailOnSeverity: warning
 
-options:
-  - --private
-  - --protected
+# Documentation validators - checks for missing documentation
+Documentation:
+  Enabled: true
 
-exclude:
-  - '\.git'
-  - 'vendor/**/*'
-  - 'node_modules/**/*'
-  - 'spec/**/*'
+Documentation/UndocumentedObjects:
+  Description: 'Checks for classes, modules, and methods without documentation.'
+  Enabled: true
+  Severity: warning
 
-fail_on_severity: warning
+Documentation/UndocumentedMethodArguments:
+  Description: 'Checks for method parameters without @param tags.'
+  Enabled: true
+  Severity: warning
 
-# Optional validators
-require_api_tags: false  # Disabled by default (opt-in)
-allowed_apis:
-  - public
-  - private
-  - internal
+# Tags validators - validates YARD tag quality
+Tags:
+  Enabled: true
 
-# Enabled by default for better documentation quality
-validate_abstract_methods: true
-validate_option_tags: true
+Tags/Order:
+  Description: 'Enforces consistent ordering of YARD tags.'
+  Enabled: true
+  Severity: convention
+  EnforcedOrder:
+    - param
+    - option
+    - return
+    - raise
+    - example
+
+Tags/InvalidTypes:
+  Description: 'Validates type definitions in @param, @return, @option tags.'
+  Enabled: true
+  Severity: warning
+  ValidatedTags:
+    - param
+    - option
+    - return
+  ExtraTypes:
+    - CustomType
+    - MyType
+
+Tags/ApiTags:
+  Description: 'Enforces @api tags on public objects.'
+  Enabled: false  # Opt-in validator
+  Severity: warning
+  AllowedApis:
+    - public
+    - private
+    - internal
+
+Tags/OptionTags:
+  Description: 'Requires @option tags for methods with options parameters.'
+  Enabled: true
+  Severity: warning
+
+# Warnings validators - catches YARD parser errors (always enabled)
+Warnings:
+  Enabled: true
+  Severity: error
+
+# Semantic validators - validates code semantics
+Semantic:
+  Enabled: true
+
+Semantic/AbstractMethods:
+  Description: 'Ensures @abstract methods do not have real implementations.'
+  Enabled: true
+  Severity: warning
 ```
+
+#### Key Features
+
+- **RuboCop-like structure**: Organized by validator departments (Documentation, Tags, Warnings, Semantic)
+- **Per-validator control**: Enable/disable and configure each validator independently
+- **Custom severity**: Override severity levels per validator
+- **Per-validator exclusions**: Add validator-specific file exclusions (in addition to global ones)
+- **Inheritance support**: Use `inherit_from` and `inherit_gem` to share configurations
+- **Self-documenting**: Each validator can include a `Description` field
+
+#### Configuration Discovery
 
 YARD-Lint will automatically search for `.yard-lint.yml` in the current directory and parent directories.
 
@@ -155,6 +206,26 @@ You can specify a different config file:
 
 ```bash
 yard-lint --config path/to/config.yml lib/
+```
+
+#### Configuration Inheritance
+
+Share configurations across projects using inheritance (like RuboCop):
+
+```yaml
+# Inherit from local files
+inherit_from:
+  - .yard-lint_todo.yml
+  - ../.yard-lint.yml
+
+# Inherit from gems
+inherit_gem:
+  my-company-style: .yard-lint.yml
+
+# Your project-specific overrides
+Documentation/UndocumentedObjects:
+  Exclude:
+    - 'lib/legacy/**/*'
 ```
 
 ### Ruby API Configuration

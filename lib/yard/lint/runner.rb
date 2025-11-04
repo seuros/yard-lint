@@ -26,21 +26,40 @@ module Yard
       # Run all validators
       # @return [Hash] hash with raw results from all validators
       def run_validators
-        results = {
-          stats: run_validator(Validators::Stats),
-          undocumented_method_arguments: run_validator(Validators::UndocumentedMethodArguments),
-          invalid_tags_types: run_validator(Validators::InvalidTagsTypes),
-          invalid_tags_order: run_validator(Validators::InvalidTagsOrder),
-          undocumented_boolean_methods: run_validator(Validators::UndocumentedBooleanMethods)
-        }
+        results = {}
 
-        # Add optional validators based on config
-        results[:api_tags] = run_validator(Validators::ApiTags) if config.require_api_tags
-        if config.validate_abstract_methods
-          results[:abstract_methods] = run_validator(Validators::AbstractMethods)
+        # Stats validator - always run (provides warning parsers)
+        results[:stats] = run_validator(Validators::Stats)
+
+        # Documentation validators
+        if config.validator_enabled?('Documentation/UndocumentedMethodArguments')
+          results[:undocumented_method_arguments] = run_validator(Validators::UndocumentedMethodArguments)
         end
-        if config.validate_option_tags
+
+        if config.validator_enabled?('Documentation/UndocumentedBooleanMethods')
+          results[:undocumented_boolean_methods] = run_validator(Validators::UndocumentedBooleanMethods)
+        end
+
+        # Tags validators
+        if config.validator_enabled?('Tags/InvalidTypes')
+          results[:invalid_tags_types] = run_validator(Validators::InvalidTagsTypes)
+        end
+
+        if config.validator_enabled?('Tags/Order')
+          results[:invalid_tags_order] = run_validator(Validators::InvalidTagsOrder)
+        end
+
+        if config.validator_enabled?('Tags/ApiTags')
+          results[:api_tags] = run_validator(Validators::ApiTags)
+        end
+
+        if config.validator_enabled?('Tags/OptionTags')
           results[:option_tags] = run_validator(Validators::OptionTags)
+        end
+
+        # Semantic validators
+        if config.validator_enabled?('Semantic/AbstractMethods')
+          results[:abstract_methods] = run_validator(Validators::AbstractMethods)
         end
 
         results
@@ -59,18 +78,33 @@ module Yard
       def parse_results(raw)
         results = {
           warnings: build_warnings(raw),
-          undocumented: build_undocumented(raw),
-          undocumented_method_arguments: build_undocumented_method_arguments(raw),
-          invalid_tags_types: build_invalid_tags_types(raw),
-          invalid_tags_order: build_invalid_tags_order(raw)
+          undocumented: build_undocumented(raw)
         }
 
-        # Add optional validator results based on config
-        results[:api_tags] = build_api_tags(raw) if config.require_api_tags
-        if config.validate_abstract_methods
+        # Add results for enabled validators
+        if config.validator_enabled?('Documentation/UndocumentedMethodArguments')
+          results[:undocumented_method_arguments] = build_undocumented_method_arguments(raw)
+        end
+
+        if config.validator_enabled?('Tags/InvalidTypes')
+          results[:invalid_tags_types] = build_invalid_tags_types(raw)
+        end
+
+        if config.validator_enabled?('Tags/Order')
+          results[:invalid_tags_order] = build_invalid_tags_order(raw)
+        end
+
+        if config.validator_enabled?('Tags/ApiTags')
+          results[:api_tags] = build_api_tags(raw)
+        end
+
+        if config.validator_enabled?('Semantic/AbstractMethods')
           results[:abstract_methods] = build_abstract_methods(raw)
         end
-        results[:option_tags] = build_option_tags(raw) if config.validate_option_tags
+
+        if config.validator_enabled?('Tags/OptionTags')
+          results[:option_tags] = build_option_tags(raw)
+        end
 
         results
       end
@@ -151,7 +185,7 @@ module Yard
       # @param parsed [Hash] parsed results
       # @return [Yard::Lint::Result] result object
       def build_result(parsed)
-        Result.new(parsed)
+        Result.new(parsed, config)
       end
     end
   end

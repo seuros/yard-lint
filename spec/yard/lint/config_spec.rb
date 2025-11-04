@@ -59,29 +59,40 @@ RSpec.describe Yard::Lint::Config do
 
     it 'loads configuration from YAML file' do
       File.write(config_file, <<~YAML)
-        options:
-          - --private
-          - --protected
-        tags_order:
-          - param
-          - return
-          - raise
-        invalid_tags_names:
-          - param
-          - return
-        extra_types:
-          - CustomType
-          - MyType
-        exclude:
-          - spec/**/*
-          - vendor/**/*
-        fail_on_severity: error
-        require_api_tags: true
-        allowed_apis:
-          - public
-          - private
-        validate_abstract_methods: true
-        validate_option_tags: true
+        AllValidators:
+          YardOptions:
+            - --private
+            - --protected
+          Exclude:
+            - spec/**/*
+            - vendor/**/*
+          FailOnSeverity: error
+
+        Tags/Order:
+          EnforcedOrder:
+            - param
+            - return
+            - raise
+
+        Tags/InvalidTypes:
+          ValidatedTags:
+            - param
+            - return
+          ExtraTypes:
+            - CustomType
+            - MyType
+
+        Tags/ApiTags:
+          Enabled: true
+          AllowedApis:
+            - public
+            - private
+
+        Semantic/AbstractMethods:
+          Enabled: true
+
+        Tags/OptionTags:
+          Enabled: true
       YAML
 
       config = described_class.from_file(config_file)
@@ -100,8 +111,9 @@ RSpec.describe Yard::Lint::Config do
 
     it 'uses defaults for missing keys' do
       File.write(config_file, <<~YAML)
-        options:
-          - --private
+        AllValidators:
+          YardOptions:
+            - --private
       YAML
 
       config = described_class.from_file(config_file)
