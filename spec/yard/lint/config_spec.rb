@@ -8,13 +8,13 @@ RSpec.describe Yard::Lint::Config do
       config = described_class.new
 
       expect(config.options).to eq([])
-      expect(config.tags_order).to eq(described_class::DEFAULT_TAGS_ORDER)
-      expect(config.invalid_tags_names).to eq(described_class::DEFAULT_INVALID_TAGS_NAMES)
+      expect(config.tags_order).to eq(Yard::Lint::Validators::Tags::Order.defaults['EnforcedOrder'])
+      expect(config.invalid_tags_names).to eq(Yard::Lint::Validators::Tags::InvalidTypes.defaults['ValidatedTags'])
       expect(config.extra_types).to eq([])
-      expect(config.exclude).to eq(described_class::DEFAULT_EXCLUDE)
+      expect(config.exclude).to eq(['\.git', 'vendor/**/*', 'node_modules/**/*'])
       expect(config.fail_on_severity).to eq('warning')
       expect(config.require_api_tags).to eq(false)
-      expect(config.allowed_apis).to eq(described_class::DEFAULT_ALLOWED_APIS)
+      expect(config.allowed_apis).to eq(Yard::Lint::Validators::Tags::ApiTags.defaults['AllowedApis'])
       expect(config.validate_abstract_methods).to eq(true)
       expect(config.validate_option_tags).to eq(true)
     end
@@ -54,7 +54,7 @@ RSpec.describe Yard::Lint::Config do
     it 'raises an error if file does not exist' do
       expect do
         described_class.from_file('/nonexistent/file.yml')
-      end.to raise_error(ArgumentError, /Config file not found/)
+      end.to raise_error(Yard::Lint::Errors::ConfigFileNotFoundError, /Config file not found/)
     end
 
     it 'loads configuration from YAML file' do
@@ -119,8 +119,8 @@ RSpec.describe Yard::Lint::Config do
       config = described_class.from_file(config_file)
 
       expect(config.options).to eq(['--private'])
-      expect(config.tags_order).to eq(described_class::DEFAULT_TAGS_ORDER)
-      expect(config.exclude).to eq(described_class::DEFAULT_EXCLUDE)
+      expect(config.tags_order).to eq(Yard::Lint::Validators::Tags::Order.defaults['EnforcedOrder'])
+      expect(config.exclude).to eq(['\.git', 'vendor/**/*', 'node_modules/**/*'])
     end
   end
 
@@ -177,13 +177,86 @@ RSpec.describe Yard::Lint::Config do
       config = described_class.new
 
       expect(config[:options]).to eq([])
-      expect(config[:tags_order]).to eq(described_class::DEFAULT_TAGS_ORDER)
+      expect(config[:tags_order]).to eq(Yard::Lint::Validators::Tags::Order.defaults['EnforcedOrder'])
     end
 
     it 'returns nil for non-existent attributes' do
       config = described_class.new
 
       expect(config[:nonexistent]).to be_nil
+    end
+  end
+
+  describe 'edge cases' do
+    it 'handles invalid severity levels gracefully' do
+      config = described_class.new do |c|
+        c.fail_on_severity = 'invalid'
+      end
+
+      expect(config.fail_on_severity).to eq('invalid')
+    end
+
+    it 'handles empty tags_order' do
+      config = described_class.new do |c|
+        c.tags_order = []
+      end
+
+      expect(config.tags_order).to eq([])
+    end
+
+    it 'handles nil values in configuration' do
+      config = described_class.new({ 'AllValidators' => { 'Exclude' => nil } })
+
+      expect(config.exclude).to eq(['\.git', 'vendor/**/*', 'node_modules/**/*'])
+    end
+
+    it 'returns correct validator severity' do
+      config = described_class.new({
+        'Tags/Order' => { 'Severity' => 'error' }
+      })
+
+      expect(config.validator_severity('Tags/Order')).to eq('error')
+    end
+
+    it 'returns department severity when validator severity not set' do
+      config = described_class.new
+
+      expect(config.validator_severity('Tags/Order')).to eq('convention')
+    end
+
+    it 'returns validator exclude patterns' do
+      config = described_class.new({
+        'Tags/Order' => { 'Exclude' => ['test/**/*'] }
+      })
+
+      expect(config.validator_exclude('Tags/Order')).to eq(['test/**/*'])
+    end
+
+    it 'returns empty array for validator without exclude patterns' do
+      config = described_class.new
+
+      expect(config.validator_exclude('Tags/Order')).to eq([])
+    end
+
+    it 'returns validator config value' do
+      config = described_class.new({
+        'Tags/Order' => { 'EnforcedOrder' => %w[param return] }
+      })
+
+      expect(config.validator_config('Tags/Order', 'EnforcedOrder')).to eq(%w[param return])
+    end
+
+    it 'returns nil for non-existent validator config key' do
+      config = described_class.new
+
+      expect(config.validator_config('Tags/Order', 'NonExistent')).to be_nil
+    end
+  end
+
+  describe '.from_file with errors' do
+    it 'raises ConfigFileNotFoundError for non-existent file' do
+      expect { described_class.from_file('/non/existent/file.yml') }
+        .to raise_error(Yard::Lint::Errors::ConfigFileNotFoundError, /Config file not found/)
     end
   end
 end

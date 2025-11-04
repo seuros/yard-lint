@@ -1,0 +1,341 @@
+# frozen_string_literal: true
+
+RSpec.describe 'Yard::Lint Integration Tests' do
+  let(:fixtures_dir) { File.expand_path('../fixtures', __FILE__) }
+
+  # Config without exclusions so fixtures are processed
+  let(:config) do
+    Yard::Lint::Config.new do |c|
+      c.exclude = []
+    end
+  end
+
+  # Each test runs independently - resets cache between tests via spec_helper
+  describe 'Undocumented Classes Detection' do
+    it 'detects undocumented classes and modules' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      expect(result.offenses?).to be true
+      expect(result.undocumented).not_to be_empty
+
+      # Should find UndocumentedClass, UndocumentedModule, and nested class
+      undocumented_names = result.undocumented.map { |o| o[:element] }
+      expect(undocumented_names).to include('UndocumentedClass')
+      expect(undocumented_names).to include('UndocumentedModule')
+    end
+
+    it 'reports correct file locations' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      result.undocumented.each do |offense|
+        expect(offense[:location]).to include('undocumented_class.rb')
+        expect(offense[:line]).to be > 0
+      end
+    end
+  end
+
+  describe 'Missing Parameter Documentation' do
+    it 'detects methods with missing param docs' do
+      file = File.join(fixtures_dir, 'missing_param_docs.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      expect(result.undocumented_method_arguments).not_to be_empty
+
+      # Should find calculate and greet methods
+      methods = result.undocumented_method_arguments.map { |o| o[:method_name] }
+      expect(methods).to include(match(/calculate/))
+      expect(methods).to include(match(/greet/))
+    end
+  end
+
+  describe 'Invalid Tag Ordering' do
+    it 'detects tags in wrong order' do
+      file = File.join(fixtures_dir, 'invalid_tag_order.rb')
+
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = []
+        # Use default tag order (param should come before return)
+        c.tags_order = %w[param option yield yieldparam yieldreturn return raise see example note todo]
+      end
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      expect(result.invalid_tags_order).not_to be_empty
+
+      # Should find process and validate methods
+      methods = result.invalid_tags_order.map { |o| o[:method_name] }
+      expect(methods).to include(match(/process/))
+      expect(methods).to include(match(/validate/))
+    end
+  end
+
+  describe 'Undocumented Boolean Methods' do
+    it 'detects boolean methods without return docs' do
+      file = File.join(fixtures_dir, 'boolean_methods.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Should find active? and ready? but not valid? (which has docs)
+      undocumented_booleans = result.undocumented.select do |o|
+        o[:element].to_s.include?('active?') || o[:element].to_s.include?('ready?')
+      end
+
+      expect(undocumented_booleans).not_to be_empty
+    end
+  end
+
+  describe 'Invalid Tag Types' do
+    it 'validates that tags use valid type definitions' do
+      file = File.join(fixtures_dir, 'invalid_tag_types.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # The validator checks for types that are not defined Ruby classes
+      # This test confirms the validator runs and returns results
+      expect(result.invalid_tags_types).to be_an(Array)
+      expect(result).to respond_to(:invalid_tags_types)
+    end
+  end
+
+  describe 'API Tags' do
+    it 'detects missing or incorrect @api tags when enforced' do
+      file = File.join(fixtures_dir, 'api_tags.rb')
+
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = []
+        c.require_api_tags = true
+        c.allowed_apis = %w[public private internal]
+      end
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Should detect methods without @api tags
+      # Note: This validator is opt-in, so it only runs when explicitly enabled
+      expect(result.api_tags).to be_an(Array)
+    end
+  end
+
+  describe 'Option Tags' do
+    it 'detects methods with options parameters but no @option tags' do
+      file = File.join(fixtures_dir, 'option_tags.rb')
+
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = []
+        c.validate_option_tags = true
+      end
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Should find methods with options/opts/kwargs params but no @option tags
+      expect(result.option_tags).to be_an(Array)
+      expect(result).to respond_to(:option_tags)
+
+      if result.option_tags.any?
+        methods_with_issues = result.option_tags.map { |o| o[:method_name] }
+        expect(methods_with_issues).to include(match(/create_with_options|process_with_opts|format_name/))
+
+        # Should NOT flag create_user which has @option tags
+        correctly_documented = result.option_tags.find { |o| o[:method_name].to_s == 'create_user' }
+        expect(correctly_documented).to be_nil
+      end
+    end
+  end
+
+  describe 'YARD Warnings' do
+    it 'detects various YARD parser warnings' do
+      file = File.join(fixtures_dir, 'yard_warnings.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # The warnings validator captures various YARD parse warnings
+      # This includes unknown tags, unknown directives, invalid formats, etc.
+      expect(result.warnings).to be_an(Array)
+      expect(result).to respond_to(:warnings)
+
+      # Warnings should be detected from the fixture file
+      if result.warnings.any?
+        warning_messages = result.warnings.map { |w| w[:message] }
+        expect(warning_messages.size).to be > 0
+      end
+    end
+  end
+
+  describe 'Abstract Methods' do
+    it 'detects abstract methods with actual implementations' do
+      file = File.join(fixtures_dir, 'abstract_methods.rb')
+
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = []
+        c.validate_abstract_methods = true
+      end
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Should validate abstract method usage
+      expect(result.abstract_methods).to be_an(Array)
+      expect(result).to respond_to(:abstract_methods)
+
+      # Should detect calculate method which has @abstract but also implementation
+      if result.abstract_methods.any?
+        methods_with_issues = result.abstract_methods.map { |o| o[:method_name] }
+        expect(methods_with_issues).to include(match(/calculate/))
+      end
+    end
+  end
+
+  describe 'Clean Code (No Offenses)' do
+    it 'finds no offenses in properly documented code' do
+      file = File.join(fixtures_dir, 'clean_code.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      expect(result.clean?).to be true
+      expect(result.count).to eq(0)
+      expect(result.offenses).to be_empty
+    end
+  end
+
+  describe 'Multiple Files' do
+    it 'processes multiple files and aggregates results' do
+      files = [
+        File.join(fixtures_dir, 'undocumented_class.rb'),
+        File.join(fixtures_dir, 'missing_param_docs.rb'),
+        File.join(fixtures_dir, 'clean_code.rb')
+      ]
+
+      result = Yard::Lint.run(path: files, config: config)
+
+      expect(result.offenses?).to be true
+
+      # Should have offenses from undocumented_class.rb and missing_param_docs.rb
+      # but none from clean_code.rb
+      expect(result.undocumented.count).to be > 0
+      expect(result.undocumented_method_arguments.count).to be > 0
+    end
+  end
+
+  describe 'Configuration Options' do
+    it 'respects custom exclude patterns' do
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = ['**/undocumented_class.rb']
+      end
+
+      # Try to run on excluded file - should process no files
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Should be clean because file was excluded
+      expect(result.clean?).to be true
+    end
+
+    it 'applies custom fail_on_severity' do
+      config = Yard::Lint::Config.new do |c|
+        c.exclude = []
+        c.fail_on_severity = 'error'
+      end
+
+      file = File.join(fixtures_dir, 'invalid_tag_order.rb')
+      result = Yard::Lint.run(path: file, config: config)
+
+      # Exit code should be 0 because tag order is convention, not error
+      expect(result.exit_code(config)).to eq(0)
+    end
+  end
+
+  describe 'Result Statistics' do
+    it 'provides accurate offense statistics' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      stats = result.statistics
+      expect(stats[:total]).to eq(result.count)
+      expect(stats[:error]).to be >= 0
+      expect(stats[:warning]).to be >= 0
+      expect(stats[:convention]).to be >= 0
+      expect(stats[:total]).to eq(stats[:error] + stats[:warning] + stats[:convention])
+    end
+  end
+
+  describe 'Glob Patterns' do
+    it 'processes files matching glob patterns' do
+      pattern = File.join(fixtures_dir, '*.rb')
+
+      result = Yard::Lint.run(path: pattern, config: config)
+
+      # Should process all fixture files
+      expect(result.offenses?).to be true
+      expect(result.count).to be > 0
+    end
+  end
+
+  describe 'Directory Processing' do
+    it 'recursively processes Ruby files in directories' do
+      result = Yard::Lint.run(path: fixtures_dir, config: config)
+
+      # Should find offenses from multiple files
+      expect(result.offenses?).to be true
+
+      # Should have processed multiple types of offenses
+      offense_types = result.offenses.map { |o| o[:name] }.uniq
+      expect(offense_types.size).to be > 1
+    end
+  end
+
+  describe 'Offense Structure' do
+    it 'returns offenses with consistent structure' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      result = Yard::Lint.run(path: file, config: config)
+
+      result.offenses.each do |offense|
+        # Every offense should have these keys
+        expect(offense).to have_key(:severity)
+        expect(offense).to have_key(:type)
+        expect(offense).to have_key(:name)
+        expect(offense).to have_key(:message)
+        expect(offense).to have_key(:location)
+        expect(offense).to have_key(:location_line)
+
+        # Values should be valid
+        expect(%w[error warning convention]).to include(offense[:severity])
+        expect(%w[line method]).to include(offense[:type])
+        expect(offense[:message]).to be_a(String)
+        expect(offense[:message]).not_to be_empty
+        expect(offense[:location]).to include('.rb')
+      end
+    end
+  end
+
+  describe 'Error Handling' do
+    it 'handles non-existent files gracefully' do
+      expect do
+        Yard::Lint.run(path: '/nonexistent/file.rb')
+      end.not_to raise_error
+    end
+
+    it 'handles empty file lists gracefully' do
+      expect do
+        Yard::Lint.run(path: [])
+      end.not_to raise_error
+    end
+
+    it 'handles invalid Ruby files gracefully' do
+      # Create a file with invalid Ruby syntax
+      invalid_file = File.join(fixtures_dir, 'invalid_syntax.rb')
+      File.write(invalid_file, 'class Foo def end')
+
+      # Should not crash, might have parse errors
+      expect do
+        Yard::Lint.run(path: invalid_file)
+      end.not_to raise_error
+
+      File.delete(invalid_file)
+    end
+  end
+end

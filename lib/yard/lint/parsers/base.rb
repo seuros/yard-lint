@@ -2,6 +2,7 @@
 
 module Yard
   module Lint
+    # Parsers for extracting offense details from YARD command output
     module Parsers
       # Base class used for all the subparsers of a yard parser
       class Base

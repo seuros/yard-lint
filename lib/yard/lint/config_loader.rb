@@ -8,7 +8,9 @@ module Yard
   module Lint
     # Handles loading and merging of configuration files with inheritance support
     class ConfigLoader
-      # Validator departments for organizing validators
+      # Validator departments and their validators
+      # Note: This lists actual configurable validators. Some validators (like Warnings/Stats)
+      # may use multiple internal parsers, but those are implementation details, not separate validators.
       DEPARTMENTS = {
         'Documentation' => %w[
           Documentation/UndocumentedObjects
@@ -22,122 +24,51 @@ module Yard
           Tags/OptionTags
         ],
         'Warnings' => %w[
-          Warnings/UnknownTag
-          Warnings/UnknownDirective
-          Warnings/InvalidTagFormat
-          Warnings/InvalidDirectiveFormat
-          Warnings/DuplicatedParameterName
-          Warnings/UnknownParameterName
+          Warnings/Stats
         ],
         'Semantic' => %w[
           Semantic/AbstractMethods
         ]
       }.freeze
 
-      # All validator names
+      # All validator names (derived from departments)
       ALL_VALIDATORS = DEPARTMENTS.values.flatten.freeze
 
       # Default configuration for each validator
       DEFAULT_VALIDATOR_CONFIG = {
         'Enabled' => true,
-        'Severity' => nil, # Will use department default if not specified
+        'Severity' => nil, # Will use validator's default or department fallback
         'Exclude' => []
       }.freeze
 
-      # Default severity by department
-      DEPARTMENT_SEVERITIES = {
-        'Documentation' => 'warning',
-        'Tags' => 'warning',
-        'Warnings' => 'error',
-        'Semantic' => 'warning'
-      }.freeze
 
-      # Validator-specific default configurations
-      VALIDATOR_DEFAULTS = {
-        'Tags/Order' => {
-          'Enabled' => true,
-          'Severity' => 'convention',
-          'EnforcedOrder' => %w[
-            param
-            option
-            yield
-            yieldparam
-            yieldreturn
-            return
-            raise
-            see
-            example
-            note
-            todo
-          ]
-        },
-        'Tags/InvalidTypes' => {
-          'Enabled' => true,
-          'Severity' => 'warning',
-          'ValidatedTags' => %w[param option return yieldreturn],
-          'ExtraTypes' => []
-        },
-        'Tags/ApiTags' => {
-          'Enabled' => false, # Opt-in validator
-          'Severity' => 'warning',
-          'AllowedApis' => %w[public private internal]
-        },
-        'Tags/OptionTags' => {
-          'Enabled' => true,
-          'Severity' => 'warning',
-          'ParameterNames' => %w[options opts kwargs]
-        },
-        'Documentation/UndocumentedObjects' => {
-          'Enabled' => true,
-          'Severity' => 'warning'
-        },
-        'Documentation/UndocumentedMethodArguments' => {
-          'Enabled' => true,
-          'Severity' => 'warning'
-        },
-        'Documentation/UndocumentedBooleanMethods' => {
-          'Enabled' => true,
-          'Severity' => 'warning'
-        },
-        'Warnings/UnknownTag' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Warnings/UnknownDirective' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Warnings/InvalidTagFormat' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Warnings/InvalidDirectiveFormat' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Warnings/DuplicatedParameterName' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Warnings/UnknownParameterName' => {
-          'Enabled' => true,
-          'Severity' => 'error'
-        },
-        'Semantic/AbstractMethods' => {
-          'Enabled' => true,
-          'Severity' => 'warning',
-          'AllowedImplementations' => [
-            'raise NotImplementedError',
-            'raise NotImplementedError, ".+"'
-          ]
-        }
-      }.freeze
+      class << self
+        # Load configuration from file with inheritance support
+        # @param path [String] path to configuration file
+        # @return [Hash] merged configuration hash
+        def load(path)
+          new(path).load
+        end
 
-      # Load configuration from file with inheritance support
-      # @param path [String] path to configuration file
-      # @return [Hash] merged configuration hash
-      def self.load(path)
-        new(path).load
+        # Get the validator module for a given validator name
+        # Dynamically resolves the module based on the validator name
+        # @param validator_name [String] validator name (e.g., 'Tags/Order')
+        # @return [Module, nil] validator module or nil if no module exists
+        def validator_module(validator_name)
+          # Convert validator name to module path
+          # e.g., 'Tags/Order' => 'Validators::Tags::Order'
+          # e.g., 'Warnings/Stats' => 'Validators::Warnings::Stats'
+          # e.g., 'Documentation/UndocumentedObjects' => 'Validators::Documentation::UndocumentedObjects'
+          department, name = validator_name.split('/')
+          module_path = "Validators::#{department}::#{name}"
+
+          # Dynamically resolve the module
+          module_path.split('::').reduce(Yard::Lint) do |mod, const_name|
+            mod.const_get(const_name)
+          end
+        rescue NameError
+          nil
+        end
       end
 
       # @param path [String] path to configuration file
@@ -157,9 +88,10 @@ module Yard
       # Load a single configuration file and handle inheritance
       # @param path [String] path to configuration file
       # @return [Hash] configuration hash with inheritance resolved
+      # @raise [Yard::Lint::Errors::CircularDependencyError] if circular dependency detected
       def load_file(path)
         # Prevent circular dependencies
-        raise "Circular dependency detected: #{path}" if @loaded_files.include?(path)
+        raise Errors::CircularDependencyError, "Circular dependency detected: #{path}" if @loaded_files.include?(path)
 
         @loaded_files << path
 

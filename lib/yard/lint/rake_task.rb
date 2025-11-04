@@ -77,7 +77,7 @@ module Yard
         )
 
         if result.clean?
-          puts '✓ No offenses found'
+          puts 'No offenses found'
         else
           stats = result.statistics
           puts "\n#{result.count} offense(s) detected"

@@ -6,9 +6,38 @@ require 'tmpdir'
 
 module Yard
   module Lint
+    # Validators for checking different aspects of YARD documentation
     module Validators
       # Base YARD validator class
       class Base
+        # Class-level cache shared across ALL validator classes
+        # Must be stored on Base itself, not on subclasses
+        @shared_command_cache = nil
+
+        class << self
+          # Lazy-initialized command cache shared across all validator instances
+          # This allows different validators to reuse results from identical YARD commands
+          # @return [CommandCache] the command cache instance
+          def command_cache
+            # Use Base's cache, not subclass's cache
+            Base.instance_variable_get(:@shared_command_cache) ||
+              Base.instance_variable_set(:@shared_command_cache, CommandCache.new)
+          end
+
+          # Reset the command cache (primarily for testing)
+          # @return [void]
+          def reset_command_cache!
+            Base.instance_variable_set(:@shared_command_cache, nil)
+          end
+
+          # Clear the YARD database (primarily for testing)
+          # @return [void]
+          def clear_yard_database!
+            return unless defined?(YARDOC_TEMP_DIR)
+
+            FileUtils.rm_rf(Dir.glob(File.join(YARDOC_TEMP_DIR, '*')))
+          end
+        end
         # Default yard stats options that we need to use
         DEFAULT_OPTIONS = [
           '--charset utf-8',
@@ -74,15 +103,11 @@ module Yard
         end
 
         # Executes a shell command and returns the result
+        # Routes through command cache to avoid duplicate executions
         # @param cmd [String] shell command to execute
         # @return [Hash] hash with stdout, stderr and exit_code keys
         def shell(cmd)
-          stdout, stderr, status = Open3.capture3(cmd)
-          {
-            stdout: stdout,
-            stderr: stderr,
-            exit_code: status.exitstatus
-          }
+          self.class.command_cache.execute(cmd)
         end
       end
     end

@@ -24,45 +24,34 @@ module Yard
       private
 
       # Run all validators
+      # Automatically runs all validators from ConfigLoader::ALL_VALIDATORS if enabled
       # @return [Hash] hash with raw results from all validators
       def run_validators
         results = {}
 
-        # Stats validator - always run (provides warning parsers)
-        results[:stats] = run_validator(Validators::Stats)
+        # Iterate through all registered validators
+        ConfigLoader::ALL_VALIDATORS.each do |validator_name|
+          # Check if validator is enabled in config
+          next unless config.validator_enabled?(validator_name)
 
-        # Documentation validators
-        if config.validator_enabled?('Documentation/UndocumentedMethodArguments')
-          results[:undocumented_method_arguments] = run_validator(Validators::UndocumentedMethodArguments)
-        end
+          # Get the validator module dynamically
+          validator_module = ConfigLoader.validator_module(validator_name)
 
-        if config.validator_enabled?('Documentation/UndocumentedBooleanMethods')
-          results[:undocumented_boolean_methods] = run_validator(Validators::UndocumentedBooleanMethods)
-        end
-
-        # Tags validators
-        if config.validator_enabled?('Tags/InvalidTypes')
-          results[:invalid_tags_types] = run_validator(Validators::InvalidTagsTypes)
-        end
-
-        if config.validator_enabled?('Tags/Order')
-          results[:invalid_tags_order] = run_validator(Validators::InvalidTagsOrder)
-        end
-
-        if config.validator_enabled?('Tags/ApiTags')
-          results[:api_tags] = run_validator(Validators::ApiTags)
-        end
-
-        if config.validator_enabled?('Tags/OptionTags')
-          results[:option_tags] = run_validator(Validators::OptionTags)
-        end
-
-        # Semantic validators
-        if config.validator_enabled?('Semantic/AbstractMethods')
-          results[:abstract_methods] = run_validator(Validators::AbstractMethods)
+          # Run the validator if it has a module (validators with modules have Validator classes)
+          # Validators without modules (like Documentation/UndocumentedObjects) are handled by Stats
+          if validator_module
+            run_and_store_validator(validator_module, results)
+          end
         end
 
         results
+      end
+
+      # Run a validator and store its result using the module's ID
+      # @param validator_module [Module] validator module (e.g., Validators::Stats)
+      # @param results [Hash] hash to store results in
+      def run_and_store_validator(validator_module, results)
+        results[validator_module.id] = run_validator(validator_module::Validator)
       end
 
       # Run a single validator
@@ -112,16 +101,16 @@ module Yard
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] results from the warning parsers
       def build_warnings(raw)
-        stats = raw.dig(:stats, :stdout)
+        stats = raw.dig(Validators::Warnings::Stats.id, :stdout)
 
         # List all warning parsers explicitly
         warning_parsers = [
-          Parsers::UnknownTag,
-          Parsers::UnknownDirective,
-          Parsers::UnknownParameterName,
-          Parsers::InvalidTagFormat,
-          Parsers::InvalidDirectiveFormat,
-          Parsers::DuplicatedParameterName
+          Validators::Warnings::Stats::UnknownTag,
+          Validators::Warnings::Stats::UnknownDirective,
+          Validators::Warnings::Stats::UnknownParameterName,
+          Validators::Warnings::Stats::InvalidTagFormat,
+          Validators::Warnings::Stats::InvalidDirectiveFormat,
+          Validators::Warnings::Stats::DuplicatedParameterName
         ]
 
         warning_parsers
@@ -132,9 +121,9 @@ module Yard
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] Array with undocumented objects details
       def build_undocumented(raw)
-        all = Parsers::UndocumentedObject.new.call(raw.dig(:stats, :stdout))
+        all = Validators::Documentation::UndocumentedObjects::Parser.new.call(raw.dig(Validators::Documentation::UndocumentedObjects.id, :stdout))
 
-        boolean = Parsers::UndocumentedBooleanMethods.new.call(raw.dig(:undocumented_boolean_methods, :stdout))
+        boolean = Validators::Documentation::UndocumentedBooleanMethods::Parser.new.call(raw.dig(Validators::Documentation::UndocumentedBooleanMethods.id, :stdout))
 
         all + boolean
       end
@@ -142,43 +131,43 @@ module Yard
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with all warnings informations from yard list on missing docs
       def build_undocumented_method_arguments(raw)
-        Parsers::UndocumentedMethodArguments.new.call(raw.dig(:undocumented_method_arguments, :stdout))
+        Validators::Documentation::UndocumentedMethodArguments::Parser.new.call(raw.dig(Validators::Documentation::UndocumentedMethodArguments.id, :stdout))
       end
 
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with location info of elements with invalid tag types
       def build_invalid_tags_types(raw)
-        Parsers::UndocumentedMethodArguments.new.call(raw.dig(:invalid_tags_types, :stdout))
+        Validators::Tags::InvalidTypes::Parser.new.call(raw.dig(Validators::Tags::InvalidTypes.id, :stdout))
       end
 
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with location info of elements with invalid tags order
       def build_invalid_tags_order(raw)
-        Parsers::InvalidTagsOrder.new.call(raw.dig(:invalid_tags_order, :stdout))
+        Validators::Tags::Order::Parser.new.call(raw.dig(Validators::Tags::Order.id, :stdout))
       end
 
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with API tag violations
       def build_api_tags(raw)
-        return [] unless raw[:api_tags]
+        return [] unless raw[Validators::Tags::ApiTags.id]
 
-        Parsers::ApiTags.new.call(raw.dig(:api_tags, :stdout))
+        Validators::Tags::ApiTags::Parser.new.call(raw.dig(Validators::Tags::ApiTags.id, :stdout))
       end
 
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with abstract method violations
       def build_abstract_methods(raw)
-        return [] unless raw[:abstract_methods]
+        return [] unless raw[Validators::Semantic::AbstractMethods.id]
 
-        Parsers::AbstractMethods.new.call(raw.dig(:abstract_methods, :stdout))
+        Validators::Semantic::AbstractMethods::Parser.new.call(raw.dig(Validators::Semantic::AbstractMethods.id, :stdout))
       end
 
       # @param raw [Hash] raw stdout output result from yard commands
       # @return [Array<Hash>] array with option tag violations
       def build_option_tags(raw)
-        return [] unless raw[:option_tags]
+        return [] unless raw[Validators::Tags::OptionTags.id]
 
-        Parsers::OptionTags.new.call(raw.dig(:option_tags, :stdout))
+        Validators::Tags::OptionTags::Parser.new.call(raw.dig(Validators::Tags::OptionTags.id, :stdout))
       end
 
       # Build final result object

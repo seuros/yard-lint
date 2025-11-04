@@ -3,6 +3,7 @@
 require 'yaml'
 require_relative 'config_loader'
 
+# YARD Lint - comprehensive linter for YARD documentation
 module Yard
   module Lint
     # Configuration object for YARD Lint
@@ -12,46 +13,8 @@ module Yard
       # Default YAML config file name
       DEFAULT_CONFIG_FILE = '.yard-lint.yml'
 
-      # Default YARD options
-      DEFAULT_OPTIONS = [].freeze
-
-      # Default tags order (common YARD tag ordering)
-      DEFAULT_TAGS_ORDER = %w[
-        param
-        option
-        yield
-        yieldparam
-        yieldreturn
-        return
-        raise
-        see
-        example
-        note
-        todo
-      ].freeze
-
-      # Default tags to check for invalid types
-      DEFAULT_INVALID_TAGS_NAMES = %w[
-        param
-        option
-        return
-        yieldreturn
-      ].freeze
-
-      # Default extra types that are allowed
-      DEFAULT_EXTRA_TYPES = [].freeze
-
-      # Default exclusion patterns (.git is always excluded)
-      DEFAULT_EXCLUDE = ['\.git', 'vendor/**/*', 'node_modules/**/*'].freeze
-
-      # Default fail severity level
-      DEFAULT_FAIL_ON_SEVERITY = 'warning'
-
       # Valid severity levels for fail_on_severity
       VALID_SEVERITIES = %w[error warning convention never].freeze
-
-      # Default allowed API values
-      DEFAULT_ALLOWED_APIS = %w[public private internal].freeze
 
       # @param raw_config [Hash] raw configuration hash (new hierarchical format)
       def initialize(raw_config = {})
@@ -61,61 +24,64 @@ module Yard
         yield self if block_given?
       end
 
-      # Load configuration from a YAML file
-      # @param path [String] path to YAML config file
-      # @return [Yard::Lint::Config] configuration object
-      def self.from_file(path)
-        raise ArgumentError, "Config file not found: #{path}" unless File.exist?(path)
+      class << self
+        # Load configuration from a YAML file
+        # @param path [String] path to YAML config file
+        # @return [Yard::Lint::Config] configuration object
+        # @raise [Yard::Lint::Errors::ConfigFileNotFoundError] if config file doesn't exist
+        def from_file(path)
+          raise Errors::ConfigFileNotFoundError, "Config file not found: #{path}" unless File.exist?(path)
 
-        # Load with inheritance support
-        merged_yaml = ConfigLoader.load(path)
+          # Load with inheritance support
+          merged_yaml = ConfigLoader.load(path)
 
-        new(merged_yaml)
-      end
-
-      # Search for and load config file from current directory upwards
-      # @param start_path [String] directory to start searching from (default: current dir)
-      # @return [Yard::Lint::Config, nil] config if found, nil otherwise
-      def self.load(start_path: Dir.pwd)
-        config_path = find_config_file(start_path)
-        config_path ? from_file(config_path) : nil
-      end
-
-      # Find config file by searching upwards from start_path
-      # @param start_path [String] directory to start searching from
-      # @return [String, nil] path to config file if found
-      def self.find_config_file(start_path)
-        current = File.expand_path(start_path)
-        root = File.expand_path('/')
-
-        loop do
-          config_path = File.join(current, DEFAULT_CONFIG_FILE)
-          return config_path if File.exist?(config_path)
-
-          break if current == root
-
-          current = File.dirname(current)
+          new(merged_yaml)
         end
 
-        nil
+        # Search for and load config file from current directory upwards
+        # @param start_path [String] directory to start searching from (default: current dir)
+        # @return [Yard::Lint::Config, nil] config if found, nil otherwise
+        def load(start_path: Dir.pwd)
+          config_path = find_config_file(start_path)
+          config_path ? from_file(config_path) : nil
+        end
+
+        # Find config file by searching upwards from start_path
+        # @param start_path [String] directory to start searching from
+        # @return [String, nil] path to config file if found
+        def find_config_file(start_path)
+          current = File.expand_path(start_path)
+          root = File.expand_path('/')
+
+          loop do
+            config_path = File.join(current, DEFAULT_CONFIG_FILE)
+            return config_path if File.exist?(config_path)
+
+            break if current == root
+
+            current = File.dirname(current)
+          end
+
+          nil
+        end
       end
 
       # YARD command-line options
       # @return [Array<String>] YARD options
       def options
-        all_validators['YardOptions'] || DEFAULT_OPTIONS
+        all_validators['YardOptions'] || []
       end
 
       # Global file exclusion patterns
       # @return [Array<String>] exclusion patterns
       def exclude
-        all_validators['Exclude'] || DEFAULT_EXCLUDE
+        all_validators['Exclude'] || ['\.git', 'vendor/**/*', 'node_modules/**/*']
       end
 
       # Minimum severity level to fail on
       # @return [String] severity level (error, warning, convention, never)
       def fail_on_severity
-        all_validators['FailOnSeverity'] || DEFAULT_FAIL_ON_SEVERITY
+        all_validators['FailOnSeverity'] || 'warning'
       end
 
       # Check if a validator is enabled
@@ -234,17 +200,17 @@ module Yard
 
       # @return [Array<String>] tag order from Tags/Order validator
       def tags_order
-        validator_config('Tags/Order', 'EnforcedOrder') || ConfigLoader::VALIDATOR_DEFAULTS.dig('Tags/Order', 'EnforcedOrder')
+        validator_config('Tags/Order', 'EnforcedOrder') || Validators::Tags::Order.defaults['EnforcedOrder']
       end
 
       # @return [Array<String>] validated tags from Tags/InvalidTypes validator
       def invalid_tags_names
-        validator_config('Tags/InvalidTypes', 'ValidatedTags') || ConfigLoader::VALIDATOR_DEFAULTS.dig('Tags/InvalidTypes', 'ValidatedTags')
+        validator_config('Tags/InvalidTypes', 'ValidatedTags') || Validators::Tags::InvalidTypes.defaults['ValidatedTags']
       end
 
       # @return [Array<String>] extra types from Tags/InvalidTypes validator
       def extra_types
-        validator_config('Tags/InvalidTypes', 'ExtraTypes') || ConfigLoader::VALIDATOR_DEFAULTS.dig('Tags/InvalidTypes', 'ExtraTypes')
+        validator_config('Tags/InvalidTypes', 'ExtraTypes') || Validators::Tags::InvalidTypes.defaults['ExtraTypes']
       end
 
       # @return [Boolean] whether API tags validator is enabled
@@ -254,7 +220,7 @@ module Yard
 
       # @return [Array<String>] allowed API values from Tags/ApiTags validator
       def allowed_apis
-        validator_config('Tags/ApiTags', 'AllowedApis') || ConfigLoader::VALIDATOR_DEFAULTS.dig('Tags/ApiTags', 'AllowedApis')
+        validator_config('Tags/ApiTags', 'AllowedApis') || Validators::Tags::ApiTags.defaults['AllowedApis']
       end
 
       # @return [Boolean] whether abstract methods validator is enabled
@@ -322,7 +288,11 @@ module Yard
       # @param validator_name [String] full validator name
       # @return [Hash] default configuration
       def build_default_validator_config(validator_name)
-        defaults = ConfigLoader::VALIDATOR_DEFAULTS[validator_name] || {}
+        # Try to get defaults from validator module first, otherwise use empty hash
+        # Validators without modules (Warnings/*, Documentation/UndocumentedObjects) will
+        # get their defaults from DEFAULT_VALIDATOR_CONFIG and department_severity
+        validator_module = ConfigLoader.validator_module(validator_name)
+        defaults = validator_module&.defaults || {}
         base = ConfigLoader::DEFAULT_VALIDATOR_CONFIG.dup
 
         base.merge(defaults).tap do |config|
@@ -332,11 +302,15 @@ module Yard
       end
 
       # Get department severity for a validator
+      # Used as fallback for validators without explicit severity in their module defaults
       # @param validator_name [String] full validator name
       # @return [String] severity level
       def department_severity(validator_name)
         department = validator_name.split('/').first
-        ConfigLoader::DEPARTMENT_SEVERITIES[department] || 'warning'
+
+        # Special case: Warnings department uses 'error' severity
+        # All other departments (Documentation, Tags, Semantic) default to 'warning'
+        department == 'Warnings' ? 'error' : 'warning'
       end
 
       # Merge validator configuration

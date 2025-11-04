@@ -1,0 +1,171 @@
+# frozen_string_literal: true
+
+RSpec.describe 'YARD Command Cache Effectiveness', :cache_isolation do
+  let(:fixtures_dir) { File.expand_path('../fixtures', __FILE__) }
+
+  # Config without exclusions so fixtures are processed
+  let(:config) do
+    Yard::Lint::Config.new do |c|
+      c.exclude = []
+    end
+  end
+
+  describe 'Cache Statistics' do
+    it 'tracks command executions' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      # Run yard-lint which will execute multiple validators
+      Yard::Lint.run(path: file, config: config)
+
+      # Get cache stats
+      cache = Yard::Lint::Validators::Base.command_cache
+      stats = cache.stats
+
+      # Should have executed commands (all misses since validators run unique commands)
+      expect(stats[:misses]).to be > 0
+      expect(stats[:total]).to eq(stats[:hits] + stats[:misses])
+      expect(stats[:total]).to eq(stats[:misses] + stats[:saved_executions])
+    end
+
+    it 'provides consistent results across runs' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      # First run
+      result1 = Yard::Lint.run(path: file, config: config)
+
+      cache = Yard::Lint::Validators::Base.command_cache
+      first_stats = cache.stats
+
+      # Reset and run again
+      Yard::Lint::Validators::Base.reset_command_cache!
+      result2 = Yard::Lint.run(path: file, config: config)
+
+      cache = Yard::Lint::Validators::Base.command_cache
+      second_stats = cache.stats
+
+      # Both runs should produce identical results
+      expect(result1.count).to eq(result2.count)
+      expect(result1.statistics).to eq(result2.statistics)
+
+      # Both runs should have similar command execution patterns
+      expect(first_stats[:misses]).to eq(second_stats[:misses])
+    end
+  end
+
+  describe 'Cache Isolation Between Runs' do
+    it 'does not share cache across different file sets' do
+      file1 = File.join(fixtures_dir, 'undocumented_class.rb')
+      file2 = File.join(fixtures_dir, 'clean_code.rb')
+
+      # Run on file1
+      result1 = Yard::Lint.run(path: file1, config: config)
+
+      # Reset cache AND YARD database for clean second run
+      Yard::Lint::Validators::Base.reset_command_cache!
+      Yard::Lint::Validators::Base.clear_yard_database!
+
+      # Run on file2
+      result2 = Yard::Lint.run(path: file2, config: config)
+
+      # Results should be different
+      expect(result1.count).not_to eq(result2.count)
+      expect(result1.clean?).not_to eq(result2.clean?)
+    end
+  end
+
+  describe 'Cache Correctness' do
+    it 'produces identical results with or without cache' do
+      files = [
+        File.join(fixtures_dir, 'undocumented_class.rb'),
+        File.join(fixtures_dir, 'missing_param_docs.rb')
+      ]
+
+      # Run with cache
+      result_with_cache = Yard::Lint.run(path: files)
+
+      # Reset cache and run again
+      Yard::Lint::Validators::Base.reset_command_cache!
+      result_without_cache = Yard::Lint.run(path: files)
+
+      # Results should be identical
+      expect(result_with_cache.count).to eq(result_without_cache.count)
+      expect(result_with_cache.statistics).to eq(result_without_cache.statistics)
+
+      # Check offense counts by type
+      expect(result_with_cache.undocumented.count).to eq(result_without_cache.undocumented.count)
+      expect(result_with_cache.undocumented_method_arguments.count)
+        .to eq(result_without_cache.undocumented_method_arguments.count)
+    end
+  end
+
+  describe 'Cache with Modified Results' do
+    it 'handles validators that modify stdout (like Tags/Order)' do
+      file = File.join(fixtures_dir, 'invalid_tag_order.rb')
+
+      # Run multiple times - Tags/Order modifies stdout to be a Hash
+      result1 = Yard::Lint.run(path: file)
+      result2 = Yard::Lint.run(path: file)
+      result3 = Yard::Lint.run(path: file)
+
+      # All results should be identical despite stdout modification
+      expect(result1.invalid_tags_order.count).to eq(result2.invalid_tags_order.count)
+      expect(result2.invalid_tags_order.count).to eq(result3.invalid_tags_order.count)
+
+      # Should not crash or have corrupted data
+      result1.invalid_tags_order.each do |offense|
+        expect(offense[:method_name]).to be_a(String)
+        expect(offense[:location]).to be_a(String)
+      end
+    end
+  end
+
+  describe 'Cache Performance Characteristics' do
+    it 'executes each unique command only once per run' do
+      file = File.join(fixtures_dir, 'undocumented_class.rb')
+
+      Yard::Lint.run(path: file, config: config)
+
+      cache = Yard::Lint::Validators::Base.command_cache
+      stats = cache.stats
+
+      # Each validator runs a unique command, so all should be misses
+      # The number of misses should equal the number of enabled validators
+      expect(stats[:misses]).to be > 0
+      expect(stats[:hits]).to eq(0)  # No duplicate commands
+    end
+
+    it 'handles multiple files efficiently' do
+      files = Dir.glob(File.join(fixtures_dir, '*.rb'))
+
+      Yard::Lint.run(path: files, config: config)
+
+      cache = Yard::Lint::Validators::Base.command_cache
+      stats = cache.stats
+
+      # With multiple files, validators still run unique commands
+      expect(stats[:misses]).to be > 0
+      expect(stats[:total]).to eq(stats[:misses])
+    end
+  end
+
+  describe 'Cache Statistics Reporting' do
+    it 'provides detailed cache statistics' do
+      file = File.join(fixtures_dir, 'clean_code.rb')
+
+      Yard::Lint.run(path: file, config: config)
+
+      cache = Yard::Lint::Validators::Base.command_cache
+      stats = cache.stats
+
+      # Should have all expected stat keys
+      expect(stats).to have_key(:hits)
+      expect(stats).to have_key(:misses)
+      expect(stats).to have_key(:total)
+      expect(stats).to have_key(:saved_executions)
+
+      # Values should be consistent
+      expect(stats[:total]).to eq(stats[:hits] + stats[:misses])
+      expect(stats[:saved_executions]).to eq(stats[:hits])
+    end
+  end
+end

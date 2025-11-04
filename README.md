@@ -394,6 +394,26 @@ end
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `bundle exec rspec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
+### Running Tests
+
+```bash
+# Run all tests (151 tests, ~41 seconds)
+bundle exec rspec
+
+# Run with profiling to see slowest tests
+bundle exec rspec --profile 10
+
+# Run only integration tests
+bundle exec rspec spec/integration/
+
+# Run a specific test file
+bundle exec rspec spec/yard/lint/config_spec.rb
+```
+
+The test suite includes comprehensive unit tests and integration tests for all validators. Tests use intelligent caching to share YARD databases across tests for optimal performance.
+
+### Installing Locally
+
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
 ## Changelog

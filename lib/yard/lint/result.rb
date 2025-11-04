@@ -132,7 +132,7 @@ module Yard
             severity: severity,
             type: 'line',
             name: 'UndocumentedObject',
-            message: "Documentation required for `#{offense[:element]}`",
+            message: Validators::Documentation::UndocumentedObjects::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -149,8 +149,7 @@ module Yard
             severity: severity,
             type: 'method',
             name: 'UndocumentedMethodArgument',
-            message: "The `#{offense[:method_name]}` method is missing documentation " \
-                     'for some of the arguments.',
+            message: Validators::Documentation::UndocumentedMethodArguments::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -167,8 +166,7 @@ module Yard
             severity: severity,
             type: 'method',
             name: 'InvalidTagType',
-            message: "The `#{offense[:method_name]}` has at least one tag " \
-                     'with an invalid type definition.',
+            message: Validators::Tags::InvalidTypes::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -181,18 +179,11 @@ module Yard
         severity = configured_severity('Tags/Order', SEVERITY_CONVENTION)
 
         invalid_tags_order.map do |offense|
-          expected_order = offense[:order]
-                           .to_s
-                           .split(',')
-                           .map { |tag| "`#{tag}`" }
-                           .join(', ')
-
           {
             severity: severity,
             type: 'method',
             name: 'InvalidTagsOrder',
-            message: "The `#{offense[:method_name]}` has yard tags in an invalid order. " \
-                     "Following tags need to be in the presented order: #{expected_order}.",
+            message: Validators::Tags::Order::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -209,7 +200,7 @@ module Yard
             severity: severity,
             type: 'line',
             name: offense[:name],
-            message: offense[:message],
+            message: Validators::Tags::ApiTags::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -226,7 +217,7 @@ module Yard
             severity: severity,
             type: 'method',
             name: offense[:name],
-            message: offense[:message],
+            message: Validators::Semantic::AbstractMethods::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }
@@ -243,7 +234,7 @@ module Yard
             severity: severity,
             type: 'method',
             name: offense[:name],
-            message: offense[:message],
+            message: Validators::Tags::OptionTags::MessagesBuilder.call(offense),
             location: offense[:location],
             location_line: offense[:line]
           }

@@ -4,7 +4,7 @@
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 
 require 'optparse'
-require 'yard/lint'
+require 'yard-lint'
 
 options = {}
 config_file = nil
@@ -65,7 +65,7 @@ when 'json'
   exit result.exit_code(config)
 when 'text', nil
   if result.clean?
-    puts '✓ No offenses found'
+    puts 'No offenses found'
     exit 0
   else
     # Show statistics if requested or in quiet mode

@@ -13,3 +13,4 @@
 # Built gems
 /*.gem
 .coditsu/local.yml
+coverage/
