@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'yaml'
+
 module Yard
   # YARD Lint module providing linting functionality for YARD documentation
   module Lint
@@ -7,13 +9,16 @@ module Yard
       # Main entry point for running YARD lint
       # @param path [String, Array<String>] file or glob pattern to check
       # @param config [Yard::Lint::Config, nil] configuration object
-      # @param config_file [String, nil] path to config file (auto-loads .yard-lint.yml if not specified)
+      # @param config_file [String, nil] path to config file
+      #   (auto-loads .yard-lint.yml if not specified)
       # @return [Yard::Lint::Result] result object with offenses
       def run(path:, config: nil, config_file: nil)
         config ||= load_config(config_file)
         files = expand_path(path, config)
         Runner.new(files, config).run
       end
+
+      private
 
       # Load configuration from file or auto-detect
       # @param config_file [String, nil] path to config file
@@ -48,7 +53,9 @@ module Yard
 
         # Filter out excluded files
         files.reject do |file|
-          config.exclude.any? { |pattern| File.fnmatch(pattern, file, File::FNM_PATHNAME | File::FNM_EXTGLOB) }
+          config.exclude.any? do |pattern|
+            File.fnmatch(pattern, file, File::FNM_PATHNAME | File::FNM_EXTGLOB)
+          end
         end
       end
     end

@@ -32,9 +32,11 @@ module Yard
 
               Tempfile.create(['yard_query', '.sh']) do |f|
                 f.write("#!/bin/bash\n")
-                f.write("yard list --query #{Shellwords.escape(query)} --private --protected -b #{Shellwords.escape(dir)} #{escaped_file_names}\n")
+                f.write("yard list --query #{Shellwords.escape(query)} ")
+                f.write("--private --protected -b #{Shellwords.escape(dir)} ")
+                f.write("#{escaped_file_names}\n")
                 f.flush
-                f.chmod(0755)
+                f.chmod(0o755)
 
                 shell("bash #{Shellwords.escape(f.path)}")
               end
@@ -75,13 +77,15 @@ module Yard
             # @return [String] tags names for which we want to check the invalid tags
             #   types definitions
             def checked_tags_names
-              query_array(config.invalid_tags_names)
+              validated_tags = config.validator_config('Tags/InvalidTypes', 'ValidatedTags')
+              query_array(validated_tags)
             end
 
             # @return [String] extra names that we allow for types definitions in a yard
             #   query acceptable form
             def allowed_types_code
-              query_array(ALLOWED_DEFAULTS + config.extra_types)
+              extra_types = config.validator_config('Tags/InvalidTypes', 'ExtraTypes') || []
+              query_array(ALLOWED_DEFAULTS + extra_types)
             end
 
             # @param elements [Array<String>] array of elements that we want to convert into
@@ -90,7 +94,7 @@ module Yard
             def query_array(elements)
               "
                 [
-                    #{elements.map { |type| "\"#{type}\"" }.join(",")}
+                    #{elements.map { |type| "'#{type}'" }.join(',')}
                 ]
               "
             end

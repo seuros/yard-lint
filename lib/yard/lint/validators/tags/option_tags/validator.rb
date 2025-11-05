@@ -27,7 +27,8 @@ module Yard
               shell(cmd)
             end
 
-            # @return [String] yard query to find methods with options parameter but no @option tags
+            # @return [String] yard query to find methods with options parameter
+            #   but no @option tags
             def query
               <<~QUERY
                 '
@@ -52,7 +53,7 @@ module Yard
                 '
               QUERY
             end
-        end
+          end
         end
       end
     end

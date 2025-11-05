@@ -39,9 +39,6 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-# Load config from file or auto-detect
-config = Yard::Lint.load_config(config_file)
-
 # Get path argument
 path = ARGV[0]
 
@@ -51,8 +48,8 @@ unless path
   exit 1
 end
 
-# Run the linter (passing config directly since we already loaded it)
-result = Yard::Lint.run(path: path, config: config, config_file: false)
+# Run the linter with config_file (it will be loaded internally)
+result = Yard::Lint.run(path: path, config_file: config_file)
 
 # Format and display results
 case options[:format]
@@ -62,7 +59,7 @@ when 'json'
     offense_count: result.count,
     offenses: result.offenses
   })
-  exit result.exit_code(config)
+  exit result.exit_code
 when 'text', nil
   if result.clean?
     puts 'No offenses found'
@@ -96,7 +93,7 @@ when 'text', nil
       end
     end
 
-    exit result.exit_code(config)
+    exit result.exit_code
   end
 else
   puts "Error: Unknown format '#{options[:format]}'"

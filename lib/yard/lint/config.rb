@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require 'yaml'
-require_relative 'config_loader'
-
 # YARD Lint - comprehensive linter for YARD documentation
 module Yard
   module Lint
@@ -15,6 +12,9 @@ module Yard
 
       # Valid severity levels for fail_on_severity
       VALID_SEVERITIES = %w[error warning convention never].freeze
+
+      # Metadata keys to skip when merging validator configs
+      METADATA_KEYS = %w[Description StyleGuide VersionAdded VersionChanged].freeze
 
       # @param raw_config [Hash] raw configuration hash (new hierarchical format)
       def initialize(raw_config = {})
@@ -30,7 +30,9 @@ module Yard
         # @return [Yard::Lint::Config] configuration object
         # @raise [Yard::Lint::Errors::ConfigFileNotFoundError] if config file doesn't exist
         def from_file(path)
-          raise Errors::ConfigFileNotFoundError, "Config file not found: #{path}" unless File.exist?(path)
+          unless File.exist?(path)
+            raise Errors::ConfigFileNotFoundError, "Config file not found: #{path}"
+          end
 
           # Load with inheritance support
           merged_yaml = ConfigLoader.load(path)
@@ -139,100 +141,6 @@ module Yard
         @raw_config['AllValidators']['FailOnSeverity'] = value
       end
 
-      # Set tags order
-      # @param value [Array<String>] tag order
-      def tags_order=(value)
-        @raw_config['Tags/Order'] ||= {}
-        @raw_config['Tags/Order']['EnforcedOrder'] = value
-        # Rebuild validators config to pick up the change
-        @validators = build_validators_config
-      end
-
-      # Set invalid tags names
-      # @param value [Array<String>] tag names to validate
-      def invalid_tags_names=(value)
-        @raw_config['Tags/InvalidTypes'] ||= {}
-        @raw_config['Tags/InvalidTypes']['ValidatedTags'] = value
-        @validators = build_validators_config
-      end
-
-      # Set extra types
-      # @param value [Array<String>] extra type names
-      def extra_types=(value)
-        @raw_config['Tags/InvalidTypes'] ||= {}
-        @raw_config['Tags/InvalidTypes']['ExtraTypes'] = value
-        @validators = build_validators_config
-      end
-
-      # Set require API tags
-      # @param value [Boolean] whether to require API tags
-      def require_api_tags=(value)
-        @raw_config['Tags/ApiTags'] ||= {}
-        @raw_config['Tags/ApiTags']['Enabled'] = value
-        @validators = build_validators_config
-      end
-
-      # Set allowed APIs
-      # @param value [Array<String>] allowed API values
-      def allowed_apis=(value)
-        @raw_config['Tags/ApiTags'] ||= {}
-        @raw_config['Tags/ApiTags']['AllowedApis'] = value
-        @validators = build_validators_config
-      end
-
-      # Set validate abstract methods
-      # @param value [Boolean] whether to validate abstract methods
-      def validate_abstract_methods=(value)
-        @raw_config['Semantic/AbstractMethods'] ||= {}
-        @raw_config['Semantic/AbstractMethods']['Enabled'] = value
-        @validators = build_validators_config
-      end
-
-      # Set validate option tags
-      # @param value [Boolean] whether to validate option tags
-      def validate_option_tags=(value)
-        @raw_config['Tags/OptionTags'] ||= {}
-        @raw_config['Tags/OptionTags']['Enabled'] = value
-        @validators = build_validators_config
-      end
-
-      # Compatibility methods that map to validator config
-
-      # @return [Array<String>] tag order from Tags/Order validator
-      def tags_order
-        validator_config('Tags/Order', 'EnforcedOrder') || Validators::Tags::Order.defaults['EnforcedOrder']
-      end
-
-      # @return [Array<String>] validated tags from Tags/InvalidTypes validator
-      def invalid_tags_names
-        validator_config('Tags/InvalidTypes', 'ValidatedTags') || Validators::Tags::InvalidTypes.defaults['ValidatedTags']
-      end
-
-      # @return [Array<String>] extra types from Tags/InvalidTypes validator
-      def extra_types
-        validator_config('Tags/InvalidTypes', 'ExtraTypes') || Validators::Tags::InvalidTypes.defaults['ExtraTypes']
-      end
-
-      # @return [Boolean] whether API tags validator is enabled
-      def require_api_tags
-        validator_enabled?('Tags/ApiTags')
-      end
-
-      # @return [Array<String>] allowed API values from Tags/ApiTags validator
-      def allowed_apis
-        validator_config('Tags/ApiTags', 'AllowedApis') || Validators::Tags::ApiTags.defaults['AllowedApis']
-      end
-
-      # @return [Boolean] whether abstract methods validator is enabled
-      def validate_abstract_methods
-        validator_enabled?('Semantic/AbstractMethods')
-      end
-
-      # @return [Boolean] whether option tags validator is enabled
-      def validate_option_tags
-        validator_enabled?('Tags/OptionTags')
-      end
-
       # Allow hash-like access for convenience
       # @param key [Symbol, String] attribute name to access
       # @return [Object, nil] attribute value or nil if not found
@@ -241,6 +149,27 @@ module Yard
       end
 
       private
+
+      # Generic helper to set validator configuration
+      # @param validator_name [String] full validator name (e.g., 'Tags/Order')
+      # @param key [String] configuration key
+      # @param value [Object] configuration value
+      def set_validator_config(validator_name, key, value)
+        @raw_config[validator_name] ||= {}
+        @raw_config[validator_name][key] = value
+        @validators = build_validators_config
+      end
+
+      # Generic helper to get validator configuration with default fallback
+      # @param validator_name [String] full validator name
+      # @param key [String] configuration key
+      # @return [Object, nil] configuration value or default
+      def get_validator_config_with_default(validator_name, key)
+        validator_config(validator_name, key) || begin
+          validator_module = ConfigLoader.validator_module(validator_name)
+          validator_module&.defaults&.dig(key)
+        end
+      end
 
       # Get AllValidators section
       # @return [Hash] AllValidators configuration
@@ -322,7 +251,7 @@ module Yard
 
         override.each do |key, value|
           # Skip metadata keys
-          next if %w[Description StyleGuide VersionAdded VersionChanged].include?(key)
+          next if METADATA_KEYS.include?(key)
 
           result[key] = if value.is_a?(Array) && result[key].is_a?(Array)
                           value # Array replacement

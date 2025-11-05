@@ -7,12 +7,14 @@ module Yard
         module UndocumentedMethodArguments
           # Builds messages for undocumented method arguments offenses
           class MessagesBuilder
-            # Build message for undocumented method arguments
-            # @param offense [Hash] offense data with :method_name key
-            # @return [String] formatted message
-            def self.call(offense)
-              "The `#{offense[:method_name]}` method is missing documentation " \
-              'for some of the arguments.'
+            class << self
+              # Build message for undocumented method arguments
+              # @param offense [Hash] offense data with :method_name key
+              # @return [String] formatted message
+              def call(offense)
+                "The `#{offense[:method_name]}` method is missing documentation " \
+                  'for some of the arguments.'
+              end
             end
           end
         end

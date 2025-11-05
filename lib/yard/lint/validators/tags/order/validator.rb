@@ -72,7 +72,7 @@ module Yard
 
             # @return [Array<String>] tags order
             def tags_order
-              config.tags_order
+              config.validator_config('Tags/Order', 'EnforcedOrder')
             end
 
             # @param elements [Array<String>] array of elements that we want to convert into
@@ -81,7 +81,7 @@ module Yard
             def query_array(elements)
               "[#{elements.map { |type| "\"#{type}\"" }.join(',')}]"
             end
-        end
+          end
         end
       end
     end

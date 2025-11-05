@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe 'YARD Command Cache Effectiveness', :cache_isolation do
-  let(:fixtures_dir) { File.expand_path('../fixtures', __FILE__) }
+  let(:fixtures_dir) { File.expand_path('fixtures', __dir__) }
 
   # Config without exclusions so fixtures are processed
   let(:config) do
@@ -92,9 +92,21 @@ RSpec.describe 'YARD Command Cache Effectiveness', :cache_isolation do
       expect(result_with_cache.statistics).to eq(result_without_cache.statistics)
 
       # Check offense counts by type
-      expect(result_with_cache.undocumented.count).to eq(result_without_cache.undocumented.count)
-      expect(result_with_cache.undocumented_method_arguments.count)
-        .to eq(result_without_cache.undocumented_method_arguments.count)
+      undocumented_with_cache = result_with_cache.offenses.select do |o|
+        o[:name] == 'UndocumentedObject'
+      end
+      undocumented_without_cache = result_without_cache.offenses.select do |o|
+        o[:name] == 'UndocumentedObject'
+      end
+      expect(undocumented_with_cache.count).to eq(undocumented_without_cache.count)
+
+      method_args_with_cache = result_with_cache.offenses.select do |o|
+        o[:name] == 'UndocumentedMethodArgument'
+      end
+      method_args_without_cache = result_without_cache.offenses.select do |o|
+        o[:name] == 'UndocumentedMethodArgument'
+      end
+      expect(method_args_with_cache.count).to eq(method_args_without_cache.count)
     end
   end
 
@@ -108,11 +120,15 @@ RSpec.describe 'YARD Command Cache Effectiveness', :cache_isolation do
       result3 = Yard::Lint.run(path: file)
 
       # All results should be identical despite stdout modification
-      expect(result1.invalid_tags_order.count).to eq(result2.invalid_tags_order.count)
-      expect(result2.invalid_tags_order.count).to eq(result3.invalid_tags_order.count)
+      invalid_tags_1 = result1.offenses.select { |o| o[:name] == 'InvalidTagOrder' }
+      invalid_tags_2 = result2.offenses.select { |o| o[:name] == 'InvalidTagOrder' }
+      invalid_tags_3 = result3.offenses.select { |o| o[:name] == 'InvalidTagOrder' }
+
+      expect(invalid_tags_1.count).to eq(invalid_tags_2.count)
+      expect(invalid_tags_2.count).to eq(invalid_tags_3.count)
 
       # Should not crash or have corrupted data
-      result1.invalid_tags_order.each do |offense|
+      invalid_tags_1.each do |offense|
         expect(offense[:method_name]).to be_a(String)
         expect(offense[:location]).to be_a(String)
       end
@@ -131,7 +147,7 @@ RSpec.describe 'YARD Command Cache Effectiveness', :cache_isolation do
       # Each validator runs a unique command, so all should be misses
       # The number of misses should equal the number of enabled validators
       expect(stats[:misses]).to be > 0
-      expect(stats[:hits]).to eq(0)  # No duplicate commands
+      expect(stats[:hits]).to eq(0) # No duplicate commands
     end
 
     it 'handles multiple files efficiently' do

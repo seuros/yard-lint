@@ -7,7 +7,9 @@ RSpec.describe Yard::Lint::Validators::Tags::InvalidTypes::MessagesBuilder do
 
       message = described_class.call(offense)
 
-      expect(message).to eq('The `calculate` has at least one tag with an invalid type definition.')
+      expect(message).to eq(
+        'The `calculate` has at least one tag with an invalid type definition.'
+      )
     end
 
     it 'builds message for class method' do
@@ -15,7 +17,9 @@ RSpec.describe Yard::Lint::Validators::Tags::InvalidTypes::MessagesBuilder do
 
       message = described_class.call(offense)
 
-      expect(message).to eq('The `MyClass.validate` has at least one tag with an invalid type definition.')
+      expect(message).to eq(
+        'The `MyClass.validate` has at least one tag with an invalid type definition.'
+      )
     end
   end
 end

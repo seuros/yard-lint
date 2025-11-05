@@ -397,7 +397,7 @@ After checking out the repo, run `bin/setup` to install dependencies. Then, run 
 ### Running Tests
 
 ```bash
-# Run all tests (151 tests, ~41 seconds)
+# Run all tests (161 tests, ~41 seconds)
 bundle exec rspec
 
 # Run with profiling to see slowest tests

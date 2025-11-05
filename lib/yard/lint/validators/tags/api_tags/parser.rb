@@ -16,25 +16,29 @@ module Yard
               results = []
 
               lines.each_slice(2) do |location_line, status_line|
-                  next unless location_line && status_line
+                next unless location_line && status_line
 
-                  # Parse location line: "file.rb:10: ClassName#method_name"
-                  match = location_line.match(/^(.+):(\d+): (.+)$/)
-                  next unless match
+                # Parse location line: "file.rb:10: ClassName#method_name"
+                match = location_line.match(/^(.+):(\d+): (.+)$/)
+                next unless match
 
-                  file = match[1]
-                  line = match[2].to_i
-                  object_name = match[3]
+                file = match[1]
+                line = match[2].to_i
+                object_name = match[3]
 
-                  results << {
-                    name: 'ApiTag',
-                    object_name: object_name,
-                    status: status_line,
-                    api_value: status_line.start_with?('invalid:') ? status_line.sub('invalid:', '') : nil,
-                    location: file,
-                    line: line
-                  }
-                end
+                api_value = if status_line.start_with?('invalid:')
+                              status_line.sub('invalid:', '')
+                            end
+
+                results << {
+                  name: 'ApiTag',
+                  object_name: object_name,
+                  status: status_line,
+                  api_value: api_value,
+                  location: file,
+                  line: line
+                }
+              end
 
               results
             end

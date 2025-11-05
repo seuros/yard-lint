@@ -9,8 +9,8 @@ Gem::Specification.new do |spec|
   spec.email = ['maciej@mensfeld.pl']
 
   spec.summary = 'YARD documentation linter and validator'
-  spec.description = 'A comprehensive linter for YARD documentation that checks for undocumented code, ' \
-                     'invalid tags, incorrect tag ordering, and more.'
+  spec.description = 'A comprehensive linter for YARD documentation that checks for ' \
+                     'undocumented code, invalid tags, incorrect tag ordering, and more.'
   spec.homepage = 'https://github.com/mensfeld/yard-lint'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.2.0'
@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = 'https://github.com/mensfeld/yard-lint'
   spec.metadata['changelog_uri'] = 'https://github.com/mensfeld/yard-lint/blob/master/CHANGELOG.md'
+  spec.metadata['rubygems_mfa_required'] = 'true'
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
@@ -26,7 +27,9 @@ Gem::Specification.new do |spec|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
         f.end_with?('.gem') ||
-        f.start_with?(*%w[bin/ Gemfile .gitignore .rspec spec/ .github/ .rubocop.yml .yard-lint.yml])
+        f.start_with?(
+          *%w[bin/ Gemfile .gitignore .rspec spec/ .github/ .rubocop.yml .yard-lint.yml]
+        )
     end
   end
   spec.bindir = 'exe'

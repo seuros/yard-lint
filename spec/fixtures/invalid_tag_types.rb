@@ -18,9 +18,9 @@ class TypeService
   end
 
   # Another invalid type
-  # @param config [NonExistentConfig] configuration
+  # @param _config [NonExistentConfig] configuration
   # @return [Array<UnknownType>] results
-  def configure(config)
+  def configure(_config)
     []
   end
 end

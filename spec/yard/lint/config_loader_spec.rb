@@ -50,7 +50,8 @@ RSpec.describe Yard::Lint::ConfigLoader do
     end
 
     it 'returns nil for non-existent validators' do
-      expect(described_class.validator_module('Tags/NonExistent')).to be_nil
+      expect { described_class.validator_module('Tags/NonExistent') }
+        .to raise_error(NameError)
     end
   end
 

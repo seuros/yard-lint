@@ -8,28 +8,79 @@ module Yard
   module Lint
     # Handles loading and merging of configuration files with inheritance support
     class ConfigLoader
+      # Inheritance keys to skip when merging configs
+      INHERITANCE_KEYS = %w[inherit_from inherit_gem].freeze
+
+      class << self
+        # Get the validator module for a given validator name
+        # Dynamically resolves the module based on the validator name
+        # @param validator_name [String] validator name (e.g., 'Tags/Order')
+        # @return [Module, nil] validator module or nil if no module exists
+        def validator_module(validator_name)
+          # Convert validator name to module path
+          # e.g., 'Tags/Order' => 'Validators::Tags::Order'
+          # e.g., 'Warnings/Stats' => 'Validators::Warnings::Stats'
+          department, name = validator_name.split('/')
+          module_path = "Validators::#{department}::#{name}"
+
+          # Dynamically resolve the module
+          module_path.split('::').reduce(Yard::Lint) do |mod, const_name|
+            mod.const_get(const_name)
+          end
+        end
+
+        # Auto-discover validators from the codebase
+        # Scans the validators directory and loads all validator modules that have
+        # an .id method and .defaults method (indicating they're valid validators)
+        # @return [Hash<String, Array<String>>] hash of department names to validator names
+        def discover_validators
+          departments = Hash.new { |h, k| h[k] = [] }
+
+          validators_path = File.join(__dir__, 'validators')
+
+          # Find all validator module files (e.g., validators/tags/order.rb)
+          Dir.glob(File.join(validators_path, '*', '*.rb')).each do |file_path|
+            # Require the validator module file to ensure it's loaded
+            require file_path
+
+            # Extract department and validator name from path
+            # e.g., .../validators/tags/order.rb -> ['tags', 'order']
+            relative_path = file_path.sub("#{validators_path}/", '')
+            parts = relative_path.sub('.rb', '').split('/')
+            department_dir = parts[0]
+            validator_dir = parts[1]
+
+            # Convert to proper casing:
+            # 'tags' -> 'Tags', 'undocumented_objects' -> 'UndocumentedObjects'
+            department = department_dir.split('_').map(&:capitalize).join
+            validator = validator_dir.split('_').map(&:capitalize).join
+
+            # Construct the validator name
+            validator_name = "#{department}/#{validator}"
+
+            # Verify it's a valid validator
+            mod = validator_module(validator_name)
+            # Check if it has the required methods
+            if mod.respond_to?(:id) && mod.respond_to?(:defaults)
+              departments[department] << validator_name
+            end
+          end
+
+          # Sort for consistent ordering
+          departments.transform_values(&:sort).sort.to_h
+        end
+
+        # Load configuration from file with inheritance support
+        # @param path [String] path to configuration file
+        # @return [Hash] merged configuration hash
+        def load(path)
+          new(path).load
+        end
+      end
+
       # Validator departments and their validators
-      # Note: This lists actual configurable validators. Some validators (like Warnings/Stats)
-      # may use multiple internal parsers, but those are implementation details, not separate validators.
-      DEPARTMENTS = {
-        'Documentation' => %w[
-          Documentation/UndocumentedObjects
-          Documentation/UndocumentedMethodArguments
-          Documentation/UndocumentedBooleanMethods
-        ],
-        'Tags' => %w[
-          Tags/InvalidTypes
-          Tags/Order
-          Tags/ApiTags
-          Tags/OptionTags
-        ],
-        'Warnings' => %w[
-          Warnings/Stats
-        ],
-        'Semantic' => %w[
-          Semantic/AbstractMethods
-        ]
-      }.freeze
+      # Auto-discovered from codebase structure
+      DEPARTMENTS = discover_validators.freeze
 
       # All validator names (derived from departments)
       ALL_VALIDATORS = DEPARTMENTS.values.flatten.freeze
@@ -40,35 +91,6 @@ module Yard
         'Severity' => nil, # Will use validator's default or department fallback
         'Exclude' => []
       }.freeze
-
-      class << self
-        # Load configuration from file with inheritance support
-        # @param path [String] path to configuration file
-        # @return [Hash] merged configuration hash
-        def load(path)
-          new(path).load
-        end
-
-        # Get the validator module for a given validator name
-        # Dynamically resolves the module based on the validator name
-        # @param validator_name [String] validator name (e.g., 'Tags/Order')
-        # @return [Module, nil] validator module or nil if no module exists
-        def validator_module(validator_name)
-          # Convert validator name to module path
-          # e.g., 'Tags/Order' => 'Validators::Tags::Order'
-          # e.g., 'Warnings/Stats' => 'Validators::Warnings::Stats'
-          # e.g., 'Documentation/UndocumentedObjects' => 'Validators::Documentation::UndocumentedObjects'
-          department, name = validator_name.split('/')
-          module_path = "Validators::#{department}::#{name}"
-
-          # Dynamically resolve the module
-          module_path.split('::').reduce(Yard::Lint) do |mod, const_name|
-            mod.const_get(const_name)
-          end
-        rescue NameError
-          nil
-        end
-      end
 
       # @param path [String] path to configuration file
       def initialize(path)
@@ -90,7 +112,9 @@ module Yard
       # @raise [Yard::Lint::Errors::CircularDependencyError] if circular dependency detected
       def load_file(path)
         # Prevent circular dependencies
-        raise Errors::CircularDependencyError, "Circular dependency detected: #{path}" if @loaded_files.include?(path)
+        if @loaded_files.include?(path)
+          raise Errors::CircularDependencyError, "Circular dependency detected: #{path}"
+        end
 
         @loaded_files << path
 
@@ -156,7 +180,7 @@ module Yard
 
         override.each do |key, value|
           # Skip inheritance keys in merged result
-          next if %w[inherit_from inherit_gem].include?(key)
+          next if INHERITANCE_KEYS.include?(key)
 
           result[key] = if value.is_a?(Hash) && result[key].is_a?(Hash)
                           merge_configs(result[key], value)

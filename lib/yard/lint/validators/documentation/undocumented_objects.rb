@@ -22,6 +22,13 @@ module Yard
                 'Severity' => 'warning'
               }
             end
+
+            # Validators to combine with this one
+            # This is a composite validator that merges results from multiple validators
+            # @return [Array<String>] validator names to combine
+            def combines_with
+              ['Documentation/UndocumentedBooleanMethods']
+            end
           end
         end
       end

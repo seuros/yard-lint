@@ -16,28 +16,28 @@ module Yard
               results = []
 
               lines.each_slice(2) do |location_line, status_line|
-                  next unless location_line && status_line
-                  next unless status_line == 'has_implementation'
+                next unless location_line && status_line
+                next unless status_line == 'has_implementation'
 
-                  # Parse location line: "file.rb:10: ClassName#method_name"
-                  match = location_line.match(/^(.+):(\d+): (.+)$/)
-                  next unless match
+                # Parse location line: "file.rb:10: ClassName#method_name"
+                match = location_line.match(/^(.+):(\d+): (.+)$/)
+                next unless match
 
-                  file = match[1]
-                  line = match[2].to_i
-                  method_name = match[3]
+                file = match[1]
+                line = match[2].to_i
+                method_name = match[3]
 
-                  results << {
-                    name: 'AbstractMethod',
-                    method_name: method_name,
-                    location: file,
-                    line: line
-                  }
-                end
+                results << {
+                  name: 'AbstractMethod',
+                  method_name: method_name,
+                  location: file,
+                  line: line
+                }
+              end
 
               results
             end
-        end
+          end
         end
       end
     end

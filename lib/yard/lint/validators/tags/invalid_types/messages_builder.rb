@@ -7,12 +7,14 @@ module Yard
         module InvalidTypes
           # Builds messages for invalid tag types offenses
           class MessagesBuilder
-            # Build message for invalid tag types
-            # @param offense [Hash] offense data with :method_name key
-            # @return [String] formatted message
-            def self.call(offense)
-              "The `#{offense[:method_name]}` has at least one tag " \
-              'with an invalid type definition.'
+            class << self
+              # Build message for invalid tag types
+              # @param offense [Hash] offense data with :method_name key
+              # @return [String] formatted message
+              def call(offense)
+                "The `#{offense[:method_name]}` has at least one tag " \
+                  'with an invalid type definition.'
+              end
             end
           end
         end

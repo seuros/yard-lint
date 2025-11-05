@@ -40,7 +40,7 @@ module Yard
 
               shell(cmd)
             end
-        end
+          end
         end
       end
     end

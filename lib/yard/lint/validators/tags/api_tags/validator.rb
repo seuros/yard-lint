@@ -54,14 +54,14 @@ module Yard
 
             # @return [Array<String>] list of allowed API values
             def allowed_apis
-              config.allowed_apis || %w[public private internal]
+              config.validator_config('Tags/ApiTags', 'AllowedApis') || %w[public private internal]
             end
 
             # @return [Boolean] whether @api tags are required on public objects
             def require_api_tags?
-              config.require_api_tags || false
+              config.validator_enabled?('Tags/ApiTags')
             end
-        end
+          end
         end
       end
     end

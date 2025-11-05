@@ -57,7 +57,7 @@ module Yard
                 '
               QUERY
             end
-        end
+          end
         end
       end
     end

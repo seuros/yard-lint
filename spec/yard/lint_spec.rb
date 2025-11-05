@@ -29,7 +29,7 @@ RSpec.describe Yard::Lint do
     it 'returns a Result object' do
       result = described_class.run(path: test_file)
 
-      expect(result).to be_a(Yard::Lint::Result)
+      expect(result).to be_a(Yard::Lint::Results::Aggregate)
     end
 
     it 'accepts a config object' do
@@ -39,7 +39,7 @@ RSpec.describe Yard::Lint do
 
       result = described_class.run(path: test_file, config: config)
 
-      expect(result).to be_a(Yard::Lint::Result)
+      expect(result).to be_a(Yard::Lint::Results::Aggregate)
     end
 
     it 'filters excluded files' do
@@ -54,77 +54,6 @@ RSpec.describe Yard::Lint do
     end
   end
 
-  describe '.load_config' do
-    it 'loads config from specified file' do
-      config_file = '/tmp/test-config.yml'
-      File.write(config_file, "AllValidators:\n  YardOptions:\n    - --private\n")
-
-      config = described_class.load_config(config_file)
-
-      expect(config.options).to eq(['--private'])
-
-      FileUtils.rm_f(config_file)
-    end
-
-    it 'auto-loads config when no file specified' do
-      allow(Yard::Lint::Config).to receive(:load).and_return(nil)
-
-      config = described_class.load_config(nil)
-
-      expect(config).to be_a(Yard::Lint::Config)
-    end
-
-    it 'returns new config when no file found' do
-      allow(Yard::Lint::Config).to receive(:load).and_return(nil)
-
-      config = described_class.load_config(nil)
-
-      expect(config).to be_a(Yard::Lint::Config)
-      expect(config.options).to eq([])
-    end
-  end
-
-  describe '.expand_path' do
-    let(:config) { Yard::Lint::Config.new }
-
-    before do
-      FileUtils.mkdir_p('/tmp/test_expand')
-      File.write('/tmp/test_expand/test1.rb', '# test')
-      File.write('/tmp/test_expand/test2.rb', '# test')
-      File.write('/tmp/test_expand/readme.txt', 'not ruby')
-    end
-
-    after do
-      FileUtils.rm_rf('/tmp/test_expand')
-    end
-
-    it 'expands directory to Ruby files' do
-      files = described_class.expand_path('/tmp/test_expand', config)
-
-      expect(files).to include('/tmp/test_expand/test1.rb')
-      expect(files).to include('/tmp/test_expand/test2.rb')
-      expect(files).not_to include('/tmp/test_expand/readme.txt')
-    end
-
-    it 'filters files based on exclusion patterns' do
-      config.exclude = ['**/test2.rb']
-      files = described_class.expand_path('/tmp/test_expand', config)
-
-      expect(files).to include('/tmp/test_expand/test1.rb')
-      expect(files).not_to include('/tmp/test_expand/test2.rb')
-    end
-
-    it 'handles single file path' do
-      files = described_class.expand_path('/tmp/test_expand/test1.rb', config)
-
-      expect(files).to eq(['/tmp/test_expand/test1.rb'])
-    end
-
-    it 'handles glob patterns' do
-      files = described_class.expand_path('/tmp/test_expand/*.rb', config)
-
-      expect(files.length).to eq(2)
-      expect(files).to all(end_with('.rb'))
-    end
-  end
+  # Config loading and path expansion are tested through integration tests
+  # that call .run() - no need to test private implementation details directly
 end

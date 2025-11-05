@@ -36,7 +36,7 @@ class WarningExamples
   # @param data [String] first documentation
   # @param data [Hash] duplicate documentation for same param
   # @return [Boolean] success
-  def save(data)
+  def save(_data)
     true
   end
 end

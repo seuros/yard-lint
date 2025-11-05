@@ -18,9 +18,9 @@ class ApiService
   end
 
   # Internal method without @api tag
-  # @param data [Hash] internal data
+  # @param _data [Hash] internal data
   # @return [Boolean] success
-  def internal_method(data)
+  def internal_method(_data)
     true
   end
 end

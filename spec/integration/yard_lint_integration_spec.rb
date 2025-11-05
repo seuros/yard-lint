@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe 'Yard::Lint Integration Tests' do
-  let(:fixtures_dir) { File.expand_path('../fixtures', __FILE__) }
+  let(:fixtures_dir) { File.expand_path('fixtures', __dir__) }
 
   # Config without exclusions so fixtures are processed
   let(:config) do
@@ -17,11 +17,13 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       result = Yard::Lint.run(path: file, config: config)
 
-      expect(result.offenses?).to be true
-      expect(result.undocumented).not_to be_empty
+      expect(result.clean?).to be false
+      expect(result.offenses.any? { |o| o[:name] == 'UndocumentedObject' }).to be true
 
       # Should find UndocumentedClass, UndocumentedModule, and nested class
-      undocumented_names = result.undocumented.map { |o| o[:element] }
+      undocumented_names = result.offenses
+                                 .select { |o| o[:name] == 'UndocumentedObject' }
+                                 .map { |o| o[:element] }
       expect(undocumented_names).to include('UndocumentedClass')
       expect(undocumented_names).to include('UndocumentedModule')
     end
@@ -31,7 +33,7 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       result = Yard::Lint.run(path: file, config: config)
 
-      result.undocumented.each do |offense|
+      result.offenses.select { |o| o[:name] == 'UndocumentedObject' }.each do |offense|
         expect(offense[:location]).to include('undocumented_class.rb')
         expect(offense[:line]).to be > 0
       end
@@ -44,10 +46,12 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       result = Yard::Lint.run(path: file, config: config)
 
-      expect(result.undocumented_method_arguments).not_to be_empty
+      expect(result.offenses.any? { |o| o[:name] == 'UndocumentedMethodArgument' }).to be true
 
       # Should find calculate and greet methods
-      methods = result.undocumented_method_arguments.map { |o| o[:method_name] }
+      methods = result.offenses
+                      .select { |o| o[:name] == 'UndocumentedMethodArgument' }
+                      .map { |o| o[:method_name] }
       expect(methods).to include(match(/calculate/))
       expect(methods).to include(match(/greet/))
     end
@@ -60,15 +64,22 @@ RSpec.describe 'Yard::Lint Integration Tests' do
       config = Yard::Lint::Config.new do |c|
         c.exclude = []
         # Use default tag order (param should come before return)
-        c.tags_order = %w[param option yield yieldparam yieldreturn return raise see example note todo]
+        c.send(
+          :set_validator_config,
+          'Tags/Order',
+          'EnforcedOrder',
+          %w[param option yield yieldparam yieldreturn return raise see example note todo]
+        )
       end
 
       result = Yard::Lint.run(path: file, config: config)
 
-      expect(result.invalid_tags_order).not_to be_empty
+      expect(result.offenses.any? { |o| o[:name] == 'InvalidTagOrder' }).to be true
 
       # Should find process and validate methods
-      methods = result.invalid_tags_order.map { |o| o[:method_name] }
+      methods = result.offenses
+                      .select { |o| o[:name] == 'InvalidTagOrder' }
+                      .map { |o| o[:method_name] }
       expect(methods).to include(match(/process/))
       expect(methods).to include(match(/validate/))
     end
@@ -81,7 +92,9 @@ RSpec.describe 'Yard::Lint Integration Tests' do
       result = Yard::Lint.run(path: file, config: config)
 
       # Should find active? and ready? but not valid? (which has docs)
-      undocumented_booleans = result.undocumented.select do |o|
+      undocumented_booleans = result.offenses
+                                    .select { |o| o[:name] == 'UndocumentedObject' }
+                                    .select do |o|
         o[:element].to_s.include?('active?') || o[:element].to_s.include?('ready?')
       end
 
@@ -97,8 +110,8 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       # The validator checks for types that are not defined Ruby classes
       # This test confirms the validator runs and returns results
-      expect(result.invalid_tags_types).to be_an(Array)
-      expect(result).to respond_to(:invalid_tags_types)
+      expect(result.offenses.select { |o| o[:name] == 'InvalidTagType' }).to be_an(Array)
+      expect(result).to respond_to(:offenses)
     end
   end
 
@@ -108,15 +121,15 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       config = Yard::Lint::Config.new do |c|
         c.exclude = []
-        c.require_api_tags = true
-        c.allowed_apis = %w[public private internal]
+        c.send(:set_validator_config, 'Tags/ApiTags', 'Enabled', true)
+        c.send(:set_validator_config, 'Tags/ApiTags', 'AllowedApis', %w[public private internal])
       end
 
       result = Yard::Lint.run(path: file, config: config)
 
       # Should detect methods without @api tags
       # Note: This validator is opt-in, so it only runs when explicitly enabled
-      expect(result.api_tags).to be_an(Array)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Api') }).to be_an(Array)
     end
   end
 
@@ -126,21 +139,27 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       config = Yard::Lint::Config.new do |c|
         c.exclude = []
-        c.validate_option_tags = true
+        c.send(:set_validator_config, 'Tags/OptionTags', 'Enabled', true)
       end
 
       result = Yard::Lint.run(path: file, config: config)
 
       # Should find methods with options/opts/kwargs params but no @option tags
-      expect(result.option_tags).to be_an(Array)
-      expect(result).to respond_to(:option_tags)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Option') }).to be_an(Array)
+      expect(result).to respond_to(:offenses)
 
-      if result.option_tags.any?
-        methods_with_issues = result.option_tags.map { |o| o[:method_name] }
-        expect(methods_with_issues).to include(match(/create_with_options|process_with_opts|format_name/))
+      if result.offenses.any? { |o| o[:name].to_s.include?('Option') }
+        methods_with_issues = result.offenses
+                                    .select { |o| o[:name].to_s.include?('Option') }
+                                    .map { |o| o[:method_name] }
+        expect(methods_with_issues).to include(
+          match(/create_with_options|process_with_opts|format_name/)
+        )
 
         # Should NOT flag create_user which has @option tags
-        correctly_documented = result.option_tags.find { |o| o[:method_name].to_s == 'create_user' }
+        correctly_documented = result.offenses.find do |o|
+          o[:name].to_s.include?('Option') && o[:method_name].to_s == 'create_user'
+        end
         expect(correctly_documented).to be_nil
       end
     end
@@ -154,12 +173,14 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       # The warnings validator captures various YARD parse warnings
       # This includes unknown tags, unknown directives, invalid formats, etc.
-      expect(result.warnings).to be_an(Array)
-      expect(result).to respond_to(:warnings)
+      expect(result.offenses.select { |o| o[:severity] == 'error' }).to be_an(Array)
+      expect(result).to respond_to(:offenses)
 
       # Warnings should be detected from the fixture file
-      if result.warnings.any?
-        warning_messages = result.warnings.map { |w| w[:message] }
+      if result.offenses.any? { |o| o[:severity] == 'error' }
+        warning_messages = result.offenses
+                                 .select { |o| o[:severity] == 'error' }
+                                 .map { |w| w[:message] }
         expect(warning_messages.size).to be > 0
       end
     end
@@ -171,18 +192,20 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       config = Yard::Lint::Config.new do |c|
         c.exclude = []
-        c.validate_abstract_methods = true
+        c.send(:set_validator_config, 'Semantic/AbstractMethods', 'Enabled', true)
       end
 
       result = Yard::Lint.run(path: file, config: config)
 
       # Should validate abstract method usage
-      expect(result.abstract_methods).to be_an(Array)
-      expect(result).to respond_to(:abstract_methods)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Abstract') }).to be_an(Array)
+      expect(result).to respond_to(:offenses)
 
       # Should detect calculate method which has @abstract but also implementation
-      if result.abstract_methods.any?
-        methods_with_issues = result.abstract_methods.map { |o| o[:method_name] }
+      if result.offenses.any? { |o| o[:name].to_s.include?('Abstract') }
+        methods_with_issues = result.offenses
+                                    .select { |o| o[:name].to_s.include?('Abstract') }
+                                    .map { |o| o[:method_name] }
         expect(methods_with_issues).to include(match(/calculate/))
       end
     end
@@ -210,12 +233,12 @@ RSpec.describe 'Yard::Lint Integration Tests' do
 
       result = Yard::Lint.run(path: files, config: config)
 
-      expect(result.offenses?).to be true
+      expect(result.clean?).to be false
 
       # Should have offenses from undocumented_class.rb and missing_param_docs.rb
       # but none from clean_code.rb
-      expect(result.undocumented.count).to be > 0
-      expect(result.undocumented_method_arguments.count).to be > 0
+      expect(result.offenses.count { |o| o[:name] == 'UndocumentedObject' }).to be > 0
+      expect(result.offenses.count { |o| o[:name] == 'UndocumentedMethodArgument' }).to be > 0
     end
   end
 
@@ -243,7 +266,7 @@ RSpec.describe 'Yard::Lint Integration Tests' do
       result = Yard::Lint.run(path: file, config: config)
 
       # Exit code should be 0 because tag order is convention, not error
-      expect(result.exit_code(config)).to eq(0)
+      expect(result.exit_code).to eq(0)
     end
   end
 
@@ -269,7 +292,7 @@ RSpec.describe 'Yard::Lint Integration Tests' do
       result = Yard::Lint.run(path: pattern, config: config)
 
       # Should process all fixture files
-      expect(result.offenses?).to be true
+      expect(result.clean?).to be false
       expect(result.count).to be > 0
     end
   end
@@ -279,7 +302,7 @@ RSpec.describe 'Yard::Lint Integration Tests' do
       result = Yard::Lint.run(path: fixtures_dir, config: config)
 
       # Should find offenses from multiple files
-      expect(result.offenses?).to be true
+      expect(result.clean?).to be false
 
       # Should have processed multiple types of offenses
       offense_types = result.offenses.map { |o| o[:name] }.uniq

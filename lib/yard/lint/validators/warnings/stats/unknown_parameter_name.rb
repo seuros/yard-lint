@@ -5,9 +5,11 @@ module Yard
     module Validators
       module Warnings
         module Stats
-          # Class used to extract warnings details that are related to yard unknown parameter names
+          # Class used to extract warnings details that are related to yard unknown
+          # parameter names
           # @example
-          #   [warn]: @param tag has unknown parameter name: bad_param in file `lib/yard/lint.rb` near line 31
+          #   [warn]: @param tag has unknown parameter name: bad_param
+          #   in file `lib/yard/lint.rb` near line 31
           class UnknownParameterName < ::Yard::Lint::Parsers::OneLineBase
             # Set of regexps for detecting warnings reported by yard stats
             self.regexps = {

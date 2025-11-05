@@ -14,6 +14,22 @@ module Yard
         # Must be stored on Base itself, not on subclasses
         @shared_command_cache = nil
 
+        # Default yard stats options that we need to use
+        DEFAULT_OPTIONS = [
+          '--charset utf-8',
+          '--markup markdown',
+          '--no-progress'
+        ].freeze
+
+        # String with a temp dir to store the yard stats database
+        # @note We run yard multiple times and in order not to rebuild db over and over
+        #   again but reuse the same one, we have a single tmp dir for it
+        YARDOC_TEMP_DIR = Dir.mktmpdir.freeze
+
+        private_constant :YARDOC_TEMP_DIR
+
+        attr_reader :config, :selection
+
         class << self
           # Lazy-initialized command cache shared across all validator instances
           # This allows different validators to reuse results from identical YARD commands
@@ -38,21 +54,6 @@ module Yard
             FileUtils.rm_rf(Dir.glob(File.join(YARDOC_TEMP_DIR, '*')))
           end
         end
-        # Default yard stats options that we need to use
-        DEFAULT_OPTIONS = [
-          '--charset utf-8',
-          '--markup markdown',
-          '--no-progress'
-        ].freeze
-
-        # String with a temp dir to store the yard stats database
-        # @note We run yard multiple times and in order not to rebuild db over and over
-        #   again but reuse the same one, we have a single tmp dir for it
-        YARDOC_TEMP_DIR = Dir.mktmpdir.freeze
-
-        private_constant :YARDOC_TEMP_DIR
-
-        attr_reader :config, :selection
 
         # @param config [Yard::Lint::Config] configuration object
         # @param selection [Array<String>] array with ruby files we want to check

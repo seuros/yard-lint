@@ -5,8 +5,8 @@ RSpec.describe 'Yard::Lint Validators' do
     context 'when require_api_tags is enabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.require_api_tags = true
-          c.allowed_apis = %w[public private internal]
+          c.send(:set_validator_config, 'Tags/ApiTags', 'Enabled', true)
+          c.send(:set_validator_config, 'Tags/ApiTags', 'AllowedApis', %w[public private internal])
         end
       end
 
@@ -15,31 +15,31 @@ RSpec.describe 'Yard::Lint Validators' do
         result = Yard::Lint.run(path: 'lib/yard/lint/version.rb', config: config)
 
         # Since require_api_tags is enabled, should find missing @api tags
-        expect(result.api_tags).to be_an(Array)
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Api') }).to be_an(Array)
         # The feature is working if we get results
-        expect(result).to respond_to(:api_tags)
+        expect(result).to respond_to(:offenses)
       end
     end
 
     context 'when require_api_tags is disabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.require_api_tags = false
+          c.send(:set_validator_config, 'Tags/ApiTags', 'Enabled', false)
         end
       end
 
       it 'does not run API tag validation' do
         result = Yard::Lint.run(path: 'lib/yard/lint/version.rb', config: config)
 
-        expect(result.api_tags).to be_empty
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Api') }).to be_empty
       end
     end
 
     context 'with custom allowed APIs' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.require_api_tags = true
-          c.allowed_apis = %w[public]
+          c.send(:set_validator_config, 'Tags/ApiTags', 'Enabled', true)
+          c.send(:set_validator_config, 'Tags/ApiTags', 'AllowedApis', %w[public])
         end
       end
 
@@ -47,7 +47,7 @@ RSpec.describe 'Yard::Lint Validators' do
         result = Yard::Lint.run(path: 'lib/yard/lint/version.rb', config: config)
 
         # Feature should work with custom config
-        expect(result.api_tags).to be_an(Array)
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Api') }).to be_an(Array)
       end
     end
   end
@@ -56,29 +56,29 @@ RSpec.describe 'Yard::Lint Validators' do
     context 'when validate_abstract_methods is enabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.validate_abstract_methods = true
+          c.send(:set_validator_config, 'Semantic/AbstractMethods', 'Enabled', true)
         end
       end
 
       it 'runs abstract method validation' do
         result = Yard::Lint.run(path: 'lib', config: config)
 
-        expect(result.abstract_methods).to be_an(Array)
-        expect(result).to respond_to(:abstract_methods)
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Abstract') }).to be_an(Array)
+        expect(result).to respond_to(:offenses)
       end
     end
 
     context 'when validate_abstract_methods is disabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.validate_abstract_methods = false
+          c.send(:set_validator_config, 'Semantic/AbstractMethods', 'Enabled', false)
         end
       end
 
       it 'does not run abstract method validation' do
         result = Yard::Lint.run(path: 'lib', config: config)
 
-        expect(result.abstract_methods).to be_empty
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Abstract') }).to be_empty
       end
     end
   end
@@ -87,29 +87,29 @@ RSpec.describe 'Yard::Lint Validators' do
     context 'when validate_option_tags is enabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.validate_option_tags = true
+          c.send(:set_validator_config, 'Tags/OptionTags', 'Enabled', true)
         end
       end
 
       it 'runs option tags validation' do
         result = Yard::Lint.run(path: 'lib', config: config)
 
-        expect(result.option_tags).to be_an(Array)
-        expect(result).to respond_to(:option_tags)
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Option') }).to be_an(Array)
+        expect(result).to respond_to(:offenses)
       end
     end
 
     context 'when validate_option_tags is disabled' do
       let(:config) do
         Yard::Lint::Config.new do |c|
-          c.validate_option_tags = false
+          c.send(:set_validator_config, 'Tags/OptionTags', 'Enabled', false)
         end
       end
 
       it 'does not run option tags validation' do
         result = Yard::Lint.run(path: 'lib', config: config)
 
-        expect(result.option_tags).to be_empty
+        expect(result.offenses.select { |o| o[:name].to_s.include?('Option') }).to be_empty
       end
     end
   end
@@ -117,18 +117,18 @@ RSpec.describe 'Yard::Lint Validators' do
   describe 'Combined Validators' do
     let(:config) do
       Yard::Lint::Config.new do |c|
-        c.require_api_tags = true
-        c.validate_abstract_methods = true
-        c.validate_option_tags = true
+        c.send(:set_validator_config, 'Tags/ApiTags', 'Enabled', true)
+        c.send(:set_validator_config, 'Semantic/AbstractMethods', 'Enabled', true)
+        c.send(:set_validator_config, 'Tags/OptionTags', 'Enabled', true)
       end
     end
 
     it 'runs all validators when enabled' do
       result = Yard::Lint.run(path: 'lib', config: config)
 
-      expect(result.api_tags).to be_an(Array)
-      expect(result.abstract_methods).to be_an(Array)
-      expect(result.option_tags).to be_an(Array)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Api') }).to be_an(Array)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Abstract') }).to be_an(Array)
+      expect(result.offenses.select { |o| o[:name].to_s.include?('Option') }).to be_an(Array)
     end
 
     it 'includes all offense types in the offenses array' do
