@@ -166,8 +166,8 @@ module Yard
       # @return [Object, nil] configuration value or default
       def get_validator_config_with_default(validator_name, key)
         validator_config(validator_name, key) || begin
-          validator_module = ConfigLoader.validator_module(validator_name)
-          validator_module&.defaults&.dig(key)
+          validator_cfg = ConfigLoader.validator_config(validator_name)
+          validator_cfg&.defaults&.dig(key)
         end
       end
 
@@ -217,11 +217,11 @@ module Yard
       # @param validator_name [String] full validator name
       # @return [Hash] default configuration
       def build_default_validator_config(validator_name)
-        # Try to get defaults from validator module first, otherwise use empty hash
-        # Validators without modules (Warnings/*, Documentation/UndocumentedObjects) will
-        # get their defaults from DEFAULT_VALIDATOR_CONFIG and department_severity
-        validator_module = ConfigLoader.validator_module(validator_name)
-        defaults = validator_module&.defaults || {}
+        # Try to get defaults from validator config first, otherwise use empty hash
+        # Validators without configs will get their defaults from
+        # DEFAULT_VALIDATOR_CONFIG and department_severity
+        validator_cfg = ConfigLoader.validator_config(validator_name)
+        defaults = validator_cfg&.defaults || {}
         base = ConfigLoader::DEFAULT_VALIDATOR_CONFIG.dup
 
         base.merge(defaults).tap do |config|

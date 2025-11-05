@@ -35,22 +35,26 @@ module Yard
           # Check if validator is enabled in config
           next unless config.validator_enabled?(validator_name)
 
-          # Get the validator module dynamically
-          validator_module = ConfigLoader.validator_module(validator_name)
+          # Get the validator namespace and config
+          validator_namespace = ConfigLoader.validator_module(validator_name)
+          validator_cfg = ConfigLoader.validator_config(validator_name)
 
           # Run the validator if it has a module
           # (validators with modules have Validator classes)
-          run_and_store_validator(validator_module, results) if validator_module
+          if validator_namespace
+            run_and_store_validator(validator_namespace, validator_cfg, results)
+          end
         end
 
         results
       end
 
       # Run a validator and store its result using the module's ID
-      # @param validator_module [Module] validator module (e.g., Validators::Stats)
+      # @param validator_namespace [Module] validator namespace module (e.g., Validators::Tags::Order)
+      # @param validator_config [Class] validator config class
       # @param results [Hash] hash to store results in
-      def run_and_store_validator(validator_module, results)
-        results[validator_module.id] = run_validator(validator_module::Validator)
+      def run_and_store_validator(validator_namespace, validator_config, results)
+        results[validator_config.id] = run_validator(validator_namespace::Validator)
       end
 
       # Run a single validator

@@ -19,18 +19,19 @@ module Yard
       # @return [Results::Base, nil] result object or nil if no offenses
       def build(validator_name, raw)
         validator_module = ConfigLoader.validator_module(validator_name)
-        return nil unless validator_module
+        validator_cfg = ConfigLoader.validator_config(validator_name)
+        return nil unless validator_module && validator_cfg
 
         # Skip if this validator is a child of a composite
         return nil if composite_child?(validator_name)
 
         # Handle composite validators (those that combine multiple validators)
-        if validator_module.respond_to?(:combines_with)
-          return build_composite_result(validator_module, raw)
+        unless validator_cfg.combines_with.empty?
+          return build_composite_result(validator_module, validator_cfg, raw)
         end
 
         # Handle standard validators (single or multi-parser)
-        build_standard_result(validator_module, raw)
+        build_standard_result(validator_module, validator_cfg, raw)
       end
 
       private
@@ -40,31 +41,32 @@ module Yard
       # @return [Boolean] true if this is a composite child
       def composite_child?(validator_name)
         ConfigLoader::ALL_VALIDATORS.any? do |parent_name|
-          parent_module = ConfigLoader.validator_module(parent_name)
-          next unless parent_module
+          parent_cfg = ConfigLoader.validator_config(parent_name)
+          next unless parent_cfg
 
-          if parent_module.respond_to?(:combines_with)
-            parent_module.combines_with.include?(validator_name)
-          else
-            false
-          end
+          parent_cfg.combines_with.include?(validator_name)
         end
       end
 
       # Build result for a composite validator (combines multiple validators)
-      # @param validator_module [Module] validator module
+      # @param validator_module [Module] validator namespace module
+      # @param validator_cfg [Class] validator config class
       # @param raw [Hash] raw results
       # @return [Results::Base, nil] composite result or nil
-      def build_composite_result(validator_module, raw)
-        # Collect all validators to combine (parent + children)
-        child_validators = validator_module.combines_with.filter_map do |child_name|
-          ConfigLoader.validator_module(child_name)
+      def build_composite_result(validator_module, validator_cfg, raw)
+        # Collect all child validators (modules + configs)
+        children = validator_cfg.combines_with.filter_map do |child_name|
+          child_mod = ConfigLoader.validator_module(child_name)
+          child_cfg = ConfigLoader.validator_config(child_name)
+          [child_mod, child_cfg] if child_mod && child_cfg
         end
-        all_validators = [validator_module] + child_validators
+
+        # All validators (parent + children)
+        all_validators = [[validator_module, validator_cfg]] + children
 
         # Parse output from all validators
-        combined = all_validators.flat_map do |mod|
-          parse_validator_output(mod, raw)
+        combined = all_validators.flat_map do |mod, cfg|
+          parse_validator_output(mod, cfg, raw)
         end
 
         return nil if combined.empty?
@@ -74,13 +76,14 @@ module Yard
 
       # Build result for a standard validator (single or multi-parser)
       # Auto-detects multi-parser validators by discovering parser classes
-      # @param validator_module [Module] validator module
+      # @param validator_module [Module] validator namespace module
+      # @param validator_cfg [Class] validator config class
       # @param raw [Hash] raw results
       # @return [Results::Base, nil] result or nil
-      def build_standard_result(validator_module, raw)
-        return nil unless raw[validator_module.id]
+      def build_standard_result(validator_module, validator_cfg, raw)
+        return nil unless raw[validator_cfg.id]
 
-        stdout = raw.dig(validator_module.id, :stdout)
+        stdout = raw.dig(validator_cfg.id, :stdout)
         return nil unless stdout
 
         # Discover all parser classes in the validator module
@@ -95,13 +98,14 @@ module Yard
       end
 
       # Parse output from a validator module
-      # @param validator_module [Module] validator module
+      # @param validator_module [Module] validator namespace module
+      # @param validator_cfg [Class] validator config class
       # @param raw [Hash] raw results
       # @return [Array<Hash>] parsed offenses
-      def parse_validator_output(validator_module, raw)
-        return [] unless raw[validator_module.id]
+      def parse_validator_output(validator_module, validator_cfg, raw)
+        return [] unless raw[validator_cfg.id]
 
-        stdout = raw.dig(validator_module.id, :stdout)
+        stdout = raw.dig(validator_cfg.id, :stdout)
         return [] unless stdout
 
         parsers = discover_parsers(validator_module)

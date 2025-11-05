@@ -31,6 +31,25 @@ module Yard
         attr_reader :config, :selection
 
         class << self
+          # Unique identifier for this validator
+          # @return [Symbol] validator identifier
+          attr_accessor :id
+
+          # Default configuration for this validator
+          # @return [Hash] default configuration hash
+          attr_accessor :defaults
+
+          # Validators to combine with this one
+          # @return [Array<String>] validator names to combine, empty array if standalone
+          def combines_with
+            @combines_with ||= []
+          end
+
+          # Set validators to combine with
+          attr_writer :combines_with
+        end
+
+        class << self
           # Lazy-initialized command cache shared across all validator instances
           # This allows different validators to reuse results from identical YARD commands
           # @return [CommandCache] the command cache instance

@@ -12,21 +12,30 @@ module Yard
       INHERITANCE_KEYS = %w[inherit_from inherit_gem].freeze
 
       class << self
-        # Get the validator module for a given validator name
-        # Dynamically resolves the module based on the validator name
+        # Get the validator namespace module for a given validator name
         # @param validator_name [String] validator name (e.g., 'Tags/Order')
-        # @return [Module, nil] validator module or nil if no module exists
+        # @return [Module, nil] validator namespace module or nil if doesn't exist
         def validator_module(validator_name)
-          # Convert validator name to module path
-          # e.g., 'Tags/Order' => 'Validators::Tags::Order'
-          # e.g., 'Warnings/Stats' => 'Validators::Warnings::Stats'
           department, name = validator_name.split('/')
           module_path = "Validators::#{department}::#{name}"
 
-          # Dynamically resolve the module
           module_path.split('::').reduce(Yard::Lint) do |mod, const_name|
             mod.const_get(const_name)
           end
+        rescue NameError
+          nil
+        end
+
+        # Get the validator config for a given validator name
+        # Dynamically resolves the config class based on the validator name
+        # @param validator_name [String] validator name (e.g., 'Tags/Order')
+        # @return [Class, nil] validator config class or nil if doesn't exist
+        def validator_config(validator_name)
+          namespace = validator_module(validator_name)
+          return nil unless namespace
+
+          # Return the Config class from within the validator namespace
+          namespace.const_defined?(:Config) ? namespace.const_get(:Config) : nil
         end
 
         # Auto-discover validators from the codebase
@@ -58,12 +67,10 @@ module Yard
             # Construct the validator name
             validator_name = "#{department}/#{validator}"
 
-            # Verify it's a valid validator
-            mod = validator_module(validator_name)
-            # Check if it has the required methods
-            if mod.respond_to?(:id) && mod.respond_to?(:defaults)
-              departments[department] << validator_name
-            end
+            # Verify it's a valid validator by checking if it has a Config class
+            cfg = validator_config(validator_name)
+            # Every validator must have a Config with id and defaults
+            departments[department] << validator_name if cfg && cfg.id && cfg.defaults
           end
 
           # Sort for consistent ordering
