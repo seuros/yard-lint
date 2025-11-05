@@ -5,6 +5,7 @@ module Yard
     # Main runner class that orchestrates the YARD validation process
     class Runner
       attr_reader :config, :selection
+      attr_accessor :progress_formatter
 
       # @param selection [Array<String>] array with ruby files to check
       # @param config [Yard::Lint::Config] configuration object
@@ -12,6 +13,7 @@ module Yard
         @selection = Array(selection).flatten
         @config = config
         @result_builder = ResultBuilder.new(config)
+        @progress_formatter = nil
       end
 
       # Runs all validators and returns a Result object
@@ -29,15 +31,20 @@ module Yard
       # @return [Hash] hash with raw results from all validators
       def run_validators
         results = {}
+        enabled_validators = ConfigLoader::ALL_VALIDATORS.select do |name|
+          config.validator_enabled?(name)
+        end
+
+        @progress_formatter&.start(enabled_validators.size)
 
         # Iterate through all registered validators
-        ConfigLoader::ALL_VALIDATORS.each do |validator_name|
-          # Check if validator is enabled in config
-          next unless config.validator_enabled?(validator_name)
-
+        enabled_validators.each_with_index do |validator_name, index|
           # Get the validator namespace and config
           validator_namespace = ConfigLoader.validator_module(validator_name)
           validator_cfg = ConfigLoader.validator_config(validator_name)
+
+          # Show progress before running validator
+          @progress_formatter&.update(index + 1, validator_name)
 
           # Run the validator if it has a module
           # (validators with modules have Validator classes)
@@ -45,6 +52,8 @@ module Yard
             run_and_store_validator(validator_namespace, validator_cfg, results)
           end
         end
+
+        @progress_formatter&.finish
 
         results
       end

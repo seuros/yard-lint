@@ -86,7 +86,7 @@ RSpec.describe Yard::Lint::ResultBuilder do
       let(:raw_results) do
         {
           stats: {
-            stdout: '[warn]: Unknown tag @example1 in file `file.rb` near line 5\n' \
+            stdout: '[warn]: Unknown tag @example1 in file `file.rb` near line 5' + "\n" \
                     '[warn]: @param tag has unknown parameter name: wrong_name for method ' \
                     "'Foo#bar' in file `file.rb` near line 10\n",
             stderr: '',

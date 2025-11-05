@@ -10,13 +10,13 @@ module Yard
           # @example
           #   [warn]: @param tag has unknown parameter name: bad_param
           #   in file `lib/yard/lint.rb` near line 31
-          class UnknownParameterName < ::Yard::Lint::Parsers::OneLineBase
+          class UnknownParameterName < ::Yard::Lint::Parsers::TwoLineBase
             # Set of regexps for detecting warnings reported by yard stats
             self.regexps = {
               general: /^\[warn\]: @param tag has unknown parameter name/,
-              message: /\[warn\]: (.*) in file/,
-              location: /in file `(.*)`/,
-              line: /line (\d*)/
+              message: /\[warn\]: (.*)$/,
+              location: /in file `(.*?)'?\s*near/,
+              line: /near line (\d+)/
             }.freeze
           end
         end

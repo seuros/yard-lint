@@ -17,11 +17,18 @@ module Yard
       # @param config [Yard::Lint::Config, nil] configuration object
       # @param config_file [String, nil] path to config file
       #   (auto-loads .yard-lint.yml if not specified)
+      # @param progress [Boolean] show progress indicator (default: true for TTY)
       # @return [Yard::Lint::Result] result object with offenses
-      def run(path:, config: nil, config_file: nil)
+      def run(path:, config: nil, config_file: nil, progress: nil)
         config ||= load_config(config_file)
         files = expand_path(path, config)
-        Runner.new(files, config).run
+        runner = Runner.new(files, config)
+
+        # Enable progress by default if output is a TTY
+        show_progress = progress.nil? ? $stdout.tty? : progress
+        runner.progress_formatter = Formatters::Progress.new if show_progress
+
+        runner.run
       end
 
       private

@@ -28,6 +28,10 @@ OptionParser.new do |opts|
     options[:stats] = true
   end
 
+  opts.on('--[no-]progress', 'Show progress indicator (default: auto)') do |value|
+    options[:progress] = value
+  end
+
   opts.on('-v', '--version', 'Show version') do
     puts "yard-lint #{Yard::Lint::VERSION}"
     exit
@@ -49,7 +53,11 @@ unless path
 end
 
 # Run the linter with config_file (it will be loaded internally)
-result = Yard::Lint.run(path: path, config_file: config_file)
+result = Yard::Lint.run(
+  path: path,
+  config_file: config_file,
+  progress: options[:progress]
+)
 
 # Format and display results
 case options[:format]

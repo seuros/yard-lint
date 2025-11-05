@@ -7,10 +7,11 @@ module Yard
         module UndocumentedMethodArguments
           # Class used to extract details about methods with undocumented arguments
           # @example
-          #   Platform::Analysis::Authors#initialize
+          #   /path/to/file.rb:10: Platform::Analysis::Authors#initialize
           class Parser < Parsers::Base
-            # Regex to extract location and method name from yard list output
-            LOCATION_REGEX = /^(.+)#(.+)$|^(.+)\.(.+)$/
+            # Regex to extract file, line, and method name from yard list output
+            # Format: /path/to/file.rb:10: ClassName#method_name
+            LOCATION_REGEX = /^(.+):(\d+):\s+(.+)[#\.](.+)$/
 
             # @param yard_list [String] raw yard list results string
             # @return [Array<Hash>] Array with undocumented method arguments details
@@ -22,14 +23,17 @@ module Yard
                   match_data = line.match(LOCATION_REGEX)
                   next unless match_data
 
-                  # Handle both instance (#) and class (.) methods
-                  location = match_data[1] || match_data[3]
-                  method_name = match_data[2] || match_data[4]
+                  # Extract: file path, line number, class name, method name
+                  file_path = match_data[1]
+                  line_number = match_data[2].to_i
+                  class_name = match_data[3]
+                  method_name = match_data[4]
 
                   {
-                    location: location,
+                    location: file_path,
                     method_name: method_name,
-                    line: 0 # YARD list doesn't provide line numbers
+                    line: line_number,
+                    class_name: class_name
                   }
                 end
             end
