@@ -2,6 +2,7 @@
 
 module Yard
   module Lint
+    # Result objects for validators
     module Results
       # Aggregates multiple validator results into a single result object
       # Maintains the same public interface as the legacy Result class

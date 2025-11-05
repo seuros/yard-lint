@@ -22,6 +22,8 @@ module Yard
           # @return [String] 'error', 'warning', or 'convention'
           attr_writer :default_severity
 
+          # Get the default severity level for this validator
+          # @return [String] 'error', 'warning', or 'convention'
           def default_severity
             @default_severity ||
               (superclass.respond_to?(:default_severity) ? superclass.default_severity : nil)
@@ -31,6 +33,8 @@ module Yard
           # @return [String] 'line' or 'method'
           attr_writer :offense_type
 
+          # Get the offense type for this validator
+          # @return [String] 'line' or 'method'
           def offense_type
             @offense_type ||
               (superclass.respond_to?(:offense_type) ? superclass.offense_type : nil)
@@ -40,6 +44,8 @@ module Yard
           # @return [String] offense name
           attr_writer :offense_name
 
+          # Get the offense name for this validator
+          # @return [String] offense name
           def offense_name
             @offense_name ||
               (superclass.respond_to?(:offense_name) ? superclass.offense_name : nil)
