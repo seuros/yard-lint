@@ -254,15 +254,45 @@ YARD-Lint supports the following command-line options:
 yard-lint [options] PATH
 
 Options:
-  -c, --config FILE     Path to config file (default: .yard-lint.yml)
-  -f, --format FORMAT   Output format (text, json)
-  -q, --quiet           Quiet mode (only show summary)
-      --stats           Show statistics summary
-  -v, --version         Show version
-  -h, --help            Show this help
+  -c, --config FILE       Path to config file (default: .yard-lint.yml)
+  -f, --format FORMAT     Output format (text, json)
+  -q, --quiet             Quiet mode (only show summary)
+      --stats             Show statistics summary
+      --[no-]progress     Show progress indicator (default: auto-detect TTY)
+  -v, --version           Show version
+  -h, --help              Show this help
 ```
 
 All configuration (tag order, exclude patterns, severity levels, validator settings) should be defined in `.yard-lint.yml`.
+
+### Progress Indicator
+
+YARD-Lint displays a real-time progress indicator showing which validator is currently running:
+
+```
+[3/9] Documentation/UndocumentedObjects
+```
+
+The progress indicator:
+- **Auto-enabled** when output is to a terminal (TTY)
+- **Auto-disabled** when piping output to a file or another command
+- Can be explicitly controlled with `--progress` or `--no-progress`
+
+Examples:
+
+```bash
+# Progress shown automatically in terminal
+yard-lint lib/
+
+# Progress hidden when piping
+yard-lint lib/ > report.txt
+
+# Explicitly disable progress
+yard-lint --no-progress lib/
+
+# Explicitly enable progress
+yard-lint --progress lib/
+```
 
 ## Examples
 
@@ -397,7 +427,7 @@ After checking out the repo, run `bin/setup` to install dependencies. Then, run 
 ### Running Tests
 
 ```bash
-# Run all tests (161 tests, ~41 seconds)
+# Run all tests (477 examples, ~45 seconds)
 bundle exec rspec
 
 # Run with profiling to see slowest tests
@@ -411,6 +441,8 @@ bundle exec rspec spec/yard/lint/config_spec.rb
 ```
 
 The test suite includes comprehensive unit tests and integration tests for all validators. Tests use intelligent caching to share YARD databases across tests for optimal performance.
+
+**Test Coverage**: 94.92% (1084/1142 lines)
 
 ## License
 

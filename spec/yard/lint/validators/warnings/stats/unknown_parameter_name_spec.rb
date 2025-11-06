@@ -7,7 +7,7 @@ RSpec.describe Yard::Lint::Validators::Warnings::Stats::UnknownParameterName do
     context 'with valid two-line input' do
       it 'parses warning data correctly' do
         input = "[warn]: @param tag has unknown parameter name: wrong_name \n" \
-                "    in file `/home/user/lib/foo.rb' near line 10"
+                '    in file `/home/user/lib/foo.rb\' near line 10'
         result = parser.call(input)
 
         expect(result.size).to eq(1)
@@ -25,9 +25,9 @@ RSpec.describe Yard::Lint::Validators::Warnings::Stats::UnknownParameterName do
     context 'with multiple warnings' do
       it 'parses all warnings' do
         input = "[warn]: @param tag has unknown parameter name: param1 \n" \
-                "    in file `lib/foo.rb' near line 10\n" \
+                '    in file `lib/foo.rb\' near line 10' + "\n" \
                 "[warn]: @param tag has unknown parameter name: param2 \n" \
-                "    in file `lib/bar.rb' near line 20"
+                '    in file `lib/bar.rb\' near line 20'
         result = parser.call(input)
 
         expect(result.size).to eq(2)
@@ -38,8 +38,9 @@ RSpec.describe Yard::Lint::Validators::Warnings::Stats::UnknownParameterName do
 
     context 'with parameter names with underscores' do
       it 'parses parameter names correctly' do
-        input = "[warn]: @param tag has unknown parameter name: old_param for method 'Bar#baz' \n" \
-                "    in file `lib/bar.rb' near line 20"
+        input = "[warn]: @param tag has unknown parameter name: old_param " \
+                "for method 'Bar#baz' \n" \
+                '    in file `lib/bar.rb\' near line 20'
         result = parser.call(input)
 
         expect(result.first[:message]).to include('old_param')

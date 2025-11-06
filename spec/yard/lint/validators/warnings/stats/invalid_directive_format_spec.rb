@@ -18,7 +18,8 @@ RSpec.describe Yard::Lint::Validators::Warnings::Stats::InvalidDirectiveFormat d
     let(:parser) { described_class.new }
 
     it 'parses invalid @!attribute format' do
-      input = '[warn]: Invalid directive format for @!attribute in file `lib/model.rb` near line 12'
+      input = '[warn]: Invalid directive format for @!attribute ' \
+              'in file `lib/model.rb` near line 12'
       result = parser.call(input)
 
       expect(result.first[:message]).to eq('Invalid directive format for @!attribute')

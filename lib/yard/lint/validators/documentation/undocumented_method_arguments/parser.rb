@@ -11,7 +11,7 @@ module Yard
           class Parser < Parsers::Base
             # Regex to extract file, line, and method name from yard list output
             # Format: /path/to/file.rb:10: ClassName#method_name
-            LOCATION_REGEX = /^(.+):(\d+):\s+(.+)[#\.](.+)$/
+            LOCATION_REGEX = /^(.+):(\d+):\s+(.+)[#.](.+)$/
 
             # @param yard_list [String] raw yard list results string
             # @return [Array<Hash>] Array with undocumented method arguments details

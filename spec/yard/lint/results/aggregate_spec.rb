@@ -2,19 +2,25 @@
 
 RSpec.describe Yard::Lint::Results::Aggregate do
   let(:result1) do
-    instance_double(Yard::Lint::Results::Base, offenses: [
-      { severity: 'error', type: 'line', name: 'Error1', message: 'msg1',
-        location: 'file1.rb', location_line: 1 },
-      { severity: 'warning', type: 'method', name: 'Warning1', message: 'msg2',
-        location: 'file2.rb', location_line: 2 }
-    ])
+    instance_double(
+      Yard::Lint::Results::Base,
+      offenses: [
+        { severity: 'error', type: 'line', name: 'Error1', message: 'msg1',
+          location: 'file1.rb', location_line: 1 },
+        { severity: 'warning', type: 'method', name: 'Warning1', message: 'msg2',
+          location: 'file2.rb', location_line: 2 }
+      ]
+    )
   end
 
   let(:result2) do
-    instance_double(Yard::Lint::Results::Base, offenses: [
-      { severity: 'convention', type: 'line', name: 'Convention1', message: 'msg3',
-        location: 'file3.rb', location_line: 3 }
-    ])
+    instance_double(
+      Yard::Lint::Results::Base,
+      offenses: [
+        { severity: 'convention', type: 'line', name: 'Convention1', message: 'msg3',
+          location: 'file3.rb', location_line: 3 }
+      ]
+    )
   end
 
   let(:result3) do
@@ -117,12 +123,15 @@ RSpec.describe Yard::Lint::Results::Aggregate do
     end
 
     it 'handles multiple offenses of same severity' do
-      result_with_multiple = instance_double(Yard::Lint::Results::Base, offenses: [
-        { severity: 'error', type: 'line', name: 'Error1', message: 'msg',
-          location: 'f.rb', location_line: 1 },
-        { severity: 'error', type: 'line', name: 'Error2', message: 'msg',
-          location: 'f.rb', location_line: 2 }
-      ])
+      result_with_multiple = instance_double(
+        Yard::Lint::Results::Base,
+        offenses: [
+          { severity: 'error', type: 'line', name: 'Error1', message: 'msg',
+            location: 'f.rb', location_line: 1 },
+          { severity: 'error', type: 'line', name: 'Error2', message: 'msg',
+            location: 'f.rb', location_line: 2 }
+        ]
+      )
       agg = described_class.new([result_with_multiple], config)
       expect(agg.statistics['error']).to eq(2)
     end
@@ -155,10 +164,13 @@ RSpec.describe Yard::Lint::Results::Aggregate do
       end
 
       it 'returns 1 if warnings exist' do
-        warning_result = instance_double(Yard::Lint::Results::Base, offenses: [
-          { severity: 'warning', type: 'line', name: 'Warn', message: 'msg',
-            location: 'f.rb', location_line: 1 }
-        ])
+        warning_result = instance_double(
+          Yard::Lint::Results::Base,
+          offenses: [
+            { severity: 'warning', type: 'line', name: 'Warn', message: 'msg',
+              location: 'f.rb', location_line: 1 }
+          ]
+        )
         agg = described_class.new([warning_result], config)
         expect(agg.exit_code).to eq(1)
       end
