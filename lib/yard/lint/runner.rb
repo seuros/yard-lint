@@ -49,7 +49,7 @@ module Yard
           # Run the validator if it has a module
           # (validators with modules have Validator classes)
           if validator_namespace
-            run_and_store_validator(validator_namespace, validator_cfg, results)
+            run_and_store_validator(validator_namespace, validator_cfg, results, validator_name)
           end
         end
 
@@ -62,15 +62,38 @@ module Yard
       # @param validator_namespace [Module] validator namespace module (e.g., Validators::Tags::Order)
       # @param validator_config [Class] validator config class
       # @param results [Hash] hash to store results in
-      def run_and_store_validator(validator_namespace, validator_config, results)
-        results[validator_config.id] = run_validator(validator_namespace::Validator)
+      # @param validator_name [String] full validator name for per-validator exclusions
+      def run_and_store_validator(
+        validator_namespace, validator_config, results, validator_name
+      )
+        results[validator_config.id] = run_validator(
+          validator_namespace::Validator,
+          validator_name
+        )
       end
 
-      # Run a single validator
+      # Run a single validator with per-validator file filtering
       # @param validator_class [Class] validator class to instantiate and run
+      # @param validator_name [String] full validator name for exclusions
       # @return [Hash] hash with stdout, stderr and exit_code keys
-      def run_validator(validator_class)
-        validator_class.new(config, selection).call
+      def run_validator(validator_class, validator_name)
+        validator_selection = filter_files_for_validator(validator_name, selection)
+        validator_class.new(config, validator_selection).call
+      end
+
+      # Filter files for a specific validator based on per-validator exclusions
+      # @param validator_name [String] full validator name
+      # @param files [Array<String>] array of file paths
+      # @return [Array<String>] filtered array of file paths
+      def filter_files_for_validator(validator_name, files)
+        validator_excludes = config.validator_exclude(validator_name)
+        return files if validator_excludes.empty?
+
+        files.reject do |file|
+          validator_excludes.any? do |pattern|
+            File.fnmatch(pattern, file, File::FNM_PATHNAME | File::FNM_EXTGLOB)
+          end
+        end
       end
 
       # Parse raw results from validators and create Result objects

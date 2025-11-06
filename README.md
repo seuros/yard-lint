@@ -198,6 +198,58 @@ Documentation/UndocumentedObjects:
     - 'lib/legacy/**/*'
 ```
 
+#### Per-Validator Exclusions
+
+You can exclude specific files from individual validators while still checking them with other validators. This is useful when you want different validators to apply to different parts of your codebase.
+
+**Example: Skip type checking in legacy code**
+
+```yaml
+# .yard-lint.yml
+AllValidators:
+  Exclude:
+    - 'vendor/**/*'
+
+# Exclude legacy files from type validation only
+Tags/InvalidTypes:
+  Exclude:
+    - 'lib/legacy/**/*'
+    - 'lib/deprecated/*.rb'
+
+# But still check for undocumented methods in those files
+Documentation/UndocumentedObjects:
+  Enabled: true
+```
+
+**Example: Different rules for different directories**
+
+```yaml
+# Strict documentation for public API
+Documentation/UndocumentedMethodArguments:
+  Enabled: true
+  Exclude:
+    - 'lib/internal/**/*'
+    - 'spec/**/*'
+
+# But enforce @api tags everywhere
+Tags/ApiTags:
+  Enabled: true
+  Exclude:
+    - 'spec/**/*'  # Only exclude specs
+```
+
+**How it works:**
+
+1. **Global exclusions** (defined in `AllValidators/Exclude`) apply to ALL validators
+2. **Per-validator exclusions** (defined in each validator's `Exclude`) apply ONLY to that validator
+3. Both types of exclusions work together - a file must pass both filters to be checked
+
+Supported glob patterns:
+- `**/*` - Recursive match (all files in subdirectories)
+- `*.rb` - Simple wildcard
+- `lib/foo/*.rb` - Directory with wildcard
+- `**/test_*.rb` - Recursive with prefix match
+
 ### Available Validators
 
 | Validator | Description | Default | Configuration Options |

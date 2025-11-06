@@ -43,6 +43,96 @@ RSpec.describe Yard::Lint::Runner do
     end
   end
 
+  describe '#filter_files_for_validator' do
+    let(:files) do
+      [
+        'lib/foo.rb',
+        'lib/bar.rb',
+        'lib/baz/qux.rb',
+        'spec/foo_spec.rb',
+        'app/models/user.rb'
+      ]
+    end
+
+    it 'returns all files when validator has no exclusions' do
+      allow(config).to receive(:validator_exclude).with('Some/Validator').and_return([])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq(files)
+    end
+
+    it 'filters files matching validator exclude patterns' do
+      allow(config).to receive(:validator_exclude)
+        .with('Some/Validator')
+        .and_return(['spec/**/*'])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq(
+        [
+          'lib/foo.rb',
+          'lib/bar.rb',
+          'lib/baz/qux.rb',
+          'app/models/user.rb'
+        ]
+      )
+    end
+
+    it 'supports glob patterns with ** and *' do
+      allow(config).to receive(:validator_exclude)
+        .with('Some/Validator')
+        .and_return(['lib/**/*.rb'])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq(['spec/foo_spec.rb', 'app/models/user.rb'])
+    end
+
+    it 'handles multiple exclusion patterns' do
+      allow(config).to receive(:validator_exclude)
+        .with('Some/Validator')
+        .and_return(['spec/**/*', 'app/**/*'])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq(
+        [
+          'lib/foo.rb',
+          'lib/bar.rb',
+          'lib/baz/qux.rb'
+        ]
+      )
+    end
+
+    it 'supports simple wildcard patterns' do
+      allow(config).to receive(:validator_exclude)
+        .with('Some/Validator')
+        .and_return(['lib/ba*.rb'])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq(
+        [
+          'lib/foo.rb',
+          'lib/baz/qux.rb',
+          'spec/foo_spec.rb',
+          'app/models/user.rb'
+        ]
+      )
+    end
+
+    it 'returns empty array when all files are excluded' do
+      allow(config).to receive(:validator_exclude)
+        .with('Some/Validator')
+        .and_return(['**/*'])
+
+      result = runner.send(:filter_files_for_validator, 'Some/Validator', files)
+
+      expect(result).to eq([])
+    end
+  end
+
   describe 'integration' do
     it 'processes enabled validators only' do
       custom_config = Yard::Lint::Config.new
