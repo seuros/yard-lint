@@ -36,11 +36,6 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
-  # Runtime dependencies
   spec.add_dependency 'yard', '~> 0.9'
   spec.add_dependency 'zeitwerk', '~> 2.6'
-
-  # Development dependencies
-  spec.add_development_dependency 'rspec', '~> 3.0'
-  spec.add_development_dependency 'simplecov', '~> 0.22'
 end

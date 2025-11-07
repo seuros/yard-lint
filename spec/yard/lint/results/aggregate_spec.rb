@@ -177,10 +177,18 @@ RSpec.describe Yard::Lint::Results::Aggregate do
 
       it 'returns 0 if only conventions exist' do
         agg = described_class.new([result2], config)
-        allow(result2).to receive(:offenses).and_return([
-          { severity: 'convention', type: 'line', name: 'Conv', message: 'msg',
-            location: 'f.rb', location_line: 1 }
-        ])
+        allow(result2).to receive(:offenses).and_return(
+          [
+            {
+              severity: 'convention',
+              type: 'line',
+              name: 'Conv',
+              message: 'msg',
+              location: 'f.rb',
+              location_line: 1
+            }
+          ]
+        )
         expect(agg.exit_code).to eq(0)
       end
 
