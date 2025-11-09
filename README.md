@@ -1,3 +1,8 @@
+![yard-lint logo](https://raw.githubusercontent.com/mensfeld/yard-lint/master/misc/logo.png)
+
+[![Build Status](https://github.com/mensfeld/yard-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/mensfeld/yard-lint/actions/workflows/ci.yml)
+[![Gem Version](https://badge.fury.io/rb/yard-lint.svg)](http://badge.fury.io/rb/yard-lint)
+
 # YARD-Lint
 
 A comprehensive linter for YARD documentation that helps you maintain clean, consistent, and complete documentation in your Ruby and Ruby on Rails projects.
@@ -17,7 +22,11 @@ YARD-Lint validates your YARD documentation for:
 - **Undocumented code**: Classes, modules, methods, and constants without documentation
 - **Missing parameter documentation**: Methods with undocumented parameters
 - **Invalid tag types**: Type definitions that aren't valid Ruby classes or allowed defaults
+- **Invalid type syntax**: Malformed YARD type syntax (unclosed brackets, empty generics, etc.)
 - **Invalid tag ordering**: Tags that don't follow your specified order
+- **Meaningless tags**: `@param` or `@option` tags on classes, modules, or constants (only valid on methods)
+- **Collection type syntax**: Enforces `Hash{K => V}` over `Hash<K, V>` (YARD standard)
+- **Type annotation position**: Validates whether types appear before or after parameter names (configurable)
 - **Boolean method documentation**: Question mark methods missing return type documentation
 - **API tag validation**: Enforce @api tags on public objects and validate API values
 - **Abstract method validation**: Ensure @abstract methods don't have real implementations
@@ -96,6 +105,14 @@ Documentation/UndocumentedObjects:
   Description: 'Checks for classes, modules, and methods without documentation.'
   Enabled: true
   Severity: warning
+  # List of methods to exclude from validation
+  # Supports three patterns:
+  #   - Exact names: 'method_name' (excludes all methods with this name)
+  #   - Arity notation: 'method_name/N' (excludes only if method has N parameters)
+  #   - Regex patterns: '/pattern/' (excludes methods matching the regex)
+  ExcludedMethods:
+    - 'initialize/0'  # Exclude only parameter-less initialize (default)
+    - '/^_/'          # Exclude private methods (by convention)
 
 Documentation/UndocumentedMethodArguments:
   Description: 'Checks for method parameters without @param tags.'
@@ -129,6 +146,49 @@ Tags/InvalidTypes:
   ExtraTypes:
     - CustomType
     - MyType
+
+Tags/TypeSyntax:
+  Description: 'Validates YARD type syntax using YARD parser.'
+  Enabled: true
+  Severity: warning
+  ValidatedTags:
+    - param
+    - option
+    - return
+    - yieldreturn
+
+Tags/MeaninglessTag:
+  Description: 'Detects @param/@option tags on classes, modules, or constants.'
+  Enabled: true
+  Severity: warning
+  CheckedTags:
+    - param
+    - option
+  InvalidObjectTypes:
+    - class
+    - module
+    - constant
+
+Tags/CollectionType:
+  Description: 'Validates Hash collection syntax (enforces Hash{K => V} over Hash<K, V>).'
+  Enabled: true
+  Severity: convention
+  ValidatedTags:
+    - param
+    - option
+    - return
+    - yieldreturn
+
+Tags/TagTypePosition:
+  Description: 'Validates type annotation position in tags.'
+  Enabled: true
+  Severity: convention
+  CheckedTags:
+    - param
+    - option
+  # EnforcedStyle: 'type_after_name' (YARD standard: @param name [Type])
+  #                or 'type_first' (@param [Type] name)
+  EnforcedStyle: type_after_name
 
 Tags/ApiTags:
   Description: 'Enforces @api tags on public objects.'
@@ -297,12 +357,16 @@ Supported glob patterns:
 | Validator | Description | Default | Configuration Options |
 |-----------|-------------|---------|----------------------|
 | **Documentation Validators** |
-| `Documentation/UndocumentedObjects` | Checks for classes, modules, and methods without documentation | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+| `Documentation/UndocumentedObjects` | Checks for classes, modules, and methods without documentation | Enabled (warning) | `Enabled`, `Severity`, `Exclude`, `ExcludedMethods` |
 | `Documentation/UndocumentedMethodArguments` | Checks for method parameters without `@param` tags | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
 | `Documentation/UndocumentedBooleanMethods` | Checks that question mark methods document their boolean return | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
 | **Tags Validators** |
 | `Tags/Order` | Enforces consistent ordering of YARD tags | Enabled (convention) | `Enabled`, `Severity`, `Exclude`, `EnforcedOrder` |
 | `Tags/InvalidTypes` | Validates type definitions in `@param`, `@return`, `@option` tags | Enabled (warning) | `Enabled`, `Severity`, `Exclude`, `ValidatedTags`, `ExtraTypes` |
+| `Tags/TypeSyntax` | Validates YARD type syntax (detects unclosed brackets, empty generics, etc.) | Enabled (warning) | `Enabled`, `Severity`, `Exclude`, `ValidatedTags` |
+| `Tags/MeaninglessTag` | Detects `@param`/`@option` tags on classes, modules, or constants (only valid on methods) | Enabled (warning) | `Enabled`, `Severity`, `Exclude`, `CheckedTags`, `InvalidObjectTypes` |
+| `Tags/CollectionType` | Enforces `Hash{K => V}` over `Hash<K, V>` (YARD standard collection syntax) | Enabled (convention) | `Enabled`, `Severity`, `Exclude`, `ValidatedTags` |
+| `Tags/TagTypePosition` | Validates type annotation position (`@param name [Type]` vs `@param [Type] name`) | Enabled (convention) | `Enabled`, `Severity`, `Exclude`, `CheckedTags`, `EnforcedStyle` |
 | `Tags/ApiTags` | Enforces `@api` tags on public objects | Disabled (opt-in) | `Enabled`, `Severity`, `Exclude`, `AllowedApis` |
 | `Tags/OptionTags` | Requires `@option` tags for methods with options parameters | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
 | **Warnings Validators** |
@@ -314,6 +378,118 @@ Supported glob patterns:
 | `Warnings/UnknownParameterName` | Detects `@param` tags for non-existent parameters | Enabled (error) | `Enabled`, `Severity`, `Exclude` |
 | **Semantic Validators** |
 | `Semantic/AbstractMethods` | Ensures `@abstract` methods don't have real implementations | Enabled (warning) | `Enabled`, `Severity`, `Exclude` |
+
+### Excluding Methods from Documentation Validation
+
+The `Documentation/UndocumentedObjects` validator supports a flexible `ExcludedMethods` configuration option that allows you to exclude specific methods from documentation requirements. This supports three pattern types:
+
+#### Pattern Types
+
+1. **Exact Name Matching**
+   ```yaml
+   ExcludedMethods:
+     - 'to_s'           # Excludes ALL to_s methods regardless of parameters
+     - 'inspect'        # Excludes ALL inspect methods
+   ```
+   Note: Exact name matching excludes the method with **any arity**. If you need arity-specific exclusions, use arity notation instead.
+
+2. **Arity Notation** (method_name/N)
+   ```yaml
+   ExcludedMethods:
+     - 'initialize/0'   # Only excludes initialize with NO parameters (default)
+     - 'call/1'         # Only excludes call methods with exactly 1 parameter
+     - 'initialize/2'   # Only excludes initialize with exactly 2 parameters
+   ```
+   Note: Arity counts total parameters (required + optional) excluding splat (*) and block (&) parameters.
+
+3. **Regex Patterns**
+   ```yaml
+   ExcludedMethods:
+     - '/^_/'           # Excludes all methods starting with underscore (private convention)
+     - '/^test_/'       # Excludes all test methods
+     - '/_(helper|util)$/' # Excludes methods ending with _helper or _util
+   ```
+
+#### Examples
+
+```yaml
+# Minimal setup: only exclude parameter-less initialize
+Documentation/UndocumentedObjects:
+  ExcludedMethods:
+    - 'initialize/0'
+
+# Common Rails/Ruby patterns
+Documentation/UndocumentedObjects:
+  ExcludedMethods:
+    - 'initialize/0'       # Parameter-less constructors
+    - '/^_/'               # Private methods (by convention)
+    - 'to_s'               # String conversion
+    - 'inspect'            # Object inspection
+    - 'hash'               # Hash code generation
+    - 'eql?'               # Equality comparison
+    - '=='                 # Binary equality operator
+    - '<=>'                # Spaceship operator (comparison)
+    - '+'                  # Addition operator
+    - '-'                  # Subtraction operator
+    - '+@'                 # Unary plus operator
+    - '-@'                 # Unary minus operator
+
+# Test framework exclusions
+Documentation/UndocumentedObjects:
+  ExcludedMethods:
+    - '/^test_/'           # Minitest methods
+    - '/^should_/'         # Shoulda methods
+    - 'setup/0'            # Setup with no params
+    - 'teardown/0'         # Teardown with no params
+```
+
+#### Pattern Validation & Edge Cases
+
+The `ExcludedMethods` feature includes robust validation and error handling:
+
+**Automatic Pattern Sanitization:**
+- **Nil values** are automatically removed
+- **Empty strings** and whitespace-only patterns are filtered out
+- **Whitespace trimming** is applied to all patterns
+- **Empty regex patterns** (`//`) are rejected (would match everything)
+- **Non-array values** are automatically converted to arrays
+
+**Invalid Pattern Handling:**
+- **Invalid regex patterns** (e.g., `/[/`, `/(unclosed`) are silently skipped without crashing
+- **Invalid arity notation** (e.g., `method/abc`, `method/`) is silently skipped
+- **Pattern matching is case-sensitive** for both exact names and regex
+
+**Operator Method Support:**
+YARD-Lint fully supports Ruby operator methods including:
+- Binary operators: `+`, `-`, `*`, `/`, `%`, `**`, `==`, `!=`, `===`, `<`, `>`, `<=`, `>=`, `<=>`, `&`, `|`, `^`, `<<`, `>>`
+- Unary operators: `+@`, `-@`, `!`, `~`
+- Other special methods: `[]`, `[]=`, `=~`
+
+**Pattern Matching Behavior:**
+- **Any match excludes**: If a method matches any pattern, it is excluded from validation
+- **Patterns are evaluated in order** as defined in the configuration
+- **Exact names have no arity restriction**: `'initialize'` excludes all initialize methods, regardless of parameters
+- **Arity notation is strict**: `'initialize/0'` only excludes initialize with exactly 0 parameters
+
+#### Troubleshooting ExcludedMethods
+
+**Methods still showing as undocumented:**
+1. Verify the method name matches exactly (case-sensitive)
+2. Check if you're using arity notation - ensure the arity count is correct
+3. For regex patterns, test your regex independently to ensure it matches
+4. Remember: Arity counts `required + optional` parameters, **excluding** splat (`*args`) and block (`&block`)
+
+**Regex patterns not working:**
+1. Ensure you're using `/pattern/` format with forward slashes
+2. Test the regex in Ruby: `Regexp.new('your_pattern').match?('method_name')`
+3. Escape special regex characters: `\.`, `\(`, `\)`, `\[`, `\]`, etc.
+4. Invalid regex patterns are silently skipped - check for syntax errors
+
+**Arity not matching:**
+1. Count parameters correctly: `def method(a, b = 1)` has arity 2 (required + optional)
+2. Splat parameters don't count: `def method(a, *rest)` has arity 1
+3. Block parameters don't count: `def method(a, &block)` has arity 1
+4. Keyword arguments count as individual parameters: `def method(a:, b:)` has arity 2
 
 ### Global Configuration
 
@@ -448,6 +624,110 @@ end
 def configure(name, options = {})
 end
 ```
+
+### Meaningless tag validation (enabled by default)
+
+This validator prevents `@param` and `@option` tags from being used on classes, modules, or constants, where they make no sense (these tags are only valid on methods).
+
+```ruby
+# Bad - @param on a class
+# @param name [String] this makes no sense on a class
+class User
+end
+
+# Bad - @option on a module
+# @option config [Boolean] :enabled modules don't have parameters
+module Authentication
+end
+
+# Good - @param on a method
+class User
+  # @param name [String] the user's name
+  def initialize(name)
+    @name = name
+  end
+end
+```
+
+To disable this validator:
+
+```yaml
+Tags/MeaninglessTag:
+  Enabled: false
+```
+
+### Collection type syntax validation (enabled by default)
+
+YARD uses `Hash{K => V}` syntax for hashes, not `Hash<K, V>` (which is generic syntax from other languages). This validator enforces the correct YARD syntax.
+
+```ruby
+# Bad - using generic syntax
+# @param options [Hash<Symbol, String>] configuration
+def configure(options)
+end
+
+# Good - using YARD syntax
+# @param options [Hash{Symbol => String}] configuration
+def configure(options)
+end
+
+# Also good - Array uses angle brackets
+# @param items [Array<String>] list of items
+def process(items)
+end
+```
+
+To disable this validator:
+
+```yaml
+Tags/CollectionType:
+  Enabled: false
+```
+
+### Type annotation position validation (enabled by default)
+
+This validator ensures consistent type annotation positioning. By default, it enforces YARD standard (`@param name [Type]`), but you can configure it to enforce `type_first` style if your team prefers it.
+
+**YARD Standard (default):**
+
+```ruby
+# Good - type after parameter name (YARD standard)
+# @param name [String] the user's name
+# @param age [Integer] the user's age
+def create_user(name, age)
+end
+
+# Bad - type before parameter name
+# @param [String] name the user's name
+# @param [Integer] age the user's age
+def create_user(name, age)
+end
+```
+
+**Alternative Style (`type_first`):**
+
+If your team prefers types before parameter names, configure it:
+
+```yaml
+Tags/TagTypePosition:
+  EnforcedStyle: type_first
+```
+
+```ruby
+# Good with type_first style
+# @param [String] name the user's name
+# @param [Integer] age the user's age
+def create_user(name, age)
+end
+
+# Bad with type_first style
+# @param name [String] the user's name
+# @param age [Integer] the user's age
+def create_user(name, age)
+end
+```
+
+**Note:** This validator only checks `@param` and `@option` tags. It doesn't check `@return` tags since they don't have parameter names.
 
 ## License
 

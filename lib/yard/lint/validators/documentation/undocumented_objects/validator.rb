@@ -7,29 +7,33 @@ module Yard
         module UndocumentedObjects
           # Runs yard list to check for undocumented objects
           class Validator < Base
-            # Query to find all objects without documentation
-            QUERY = "'docstring.blank?'"
-
-            private_constant :QUERY
-
             private
 
             # Runs yard list query with proper settings on a given dir and files
             # @param dir [String] dir where we should generate the temp docs
-            # @param escaped_file_names [String] files for which we want to get the stats
+            # @param file_list_path [String] path to temp file containing file paths (one per line)
             # @return [Hash] shell command execution hash results
-            def yard_cmd(dir, escaped_file_names)
+            def yard_cmd(dir, file_list_path)
               cmd = <<~CMD
-                yard list \
+                cat #{Shellwords.escape(file_list_path)} | xargs yard list \
                   #{shell_arguments} \
-                  --query #{QUERY} \
+                  --query #{query} \
                   -q \
-                  -b #{Shellwords.escape(dir)} \
-                  #{escaped_file_names}
+                  -b #{Shellwords.escape(dir)}
               CMD
               cmd = cmd.tr("\n", ' ')
 
               shell(cmd)
+            end
+
+            # Custom query that outputs parameter count for methods
+            # Format: file.rb:LINE: ElementName|ARITY
+            # Arity counts all parameters (required + optional) excluding splat and block
+            # @return [String] YARD query string
+            def query
+              <<~QUERY.chomp
+                "if docstring.all.empty? then if object.is_a?(YARD::CodeObjects::MethodObject) then arity = object.parameters.reject { |p| p[0].start_with?('*', '&') }.size; puts object.file + ':' + object.line.to_s + ': ' + object.title + '|' + arity.to_s; else puts object.file + ':' + object.line.to_s + ': ' + object.title; end; false; end"
+              QUERY
             end
           end
         end

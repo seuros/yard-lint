@@ -9,13 +9,15 @@ module Yard
           # do not have a return type or return description documented
           class Validator < Base
             # Query to find all the boolean methods without proper return documentation
+            # Requires either: no @return tag, OR @return tag with no types specified
+            # Accepts @return [Boolean] without description text as valid documentation
             QUERY = <<~QUERY.tr("\n", ' ')
               '
                 type == :method &&
                 !is_alias? &&
                 is_explicit? &&
                 name.to_s.end_with?("?") &&
-                (tag("return").nil? || tag("return").text.to_s.strip.empty?)
+                (tag("return").nil? || tag("return").types.to_a.empty?)
               '
             QUERY
 
@@ -25,16 +27,15 @@ module Yard
 
             # Runs yard list query with proper settings on a given dir and files
             # @param dir [String] dir where we should generate the temp docs
-            # @param escaped_file_names [String] files for which we want to get the stats
+            # @param file_list_path [String] path to temp file containing file paths (one per line)
             # @return [Hash] shell command execution hash results
-            def yard_cmd(dir, escaped_file_names)
+            def yard_cmd(dir, file_list_path)
               cmd = <<~CMD
-                yard list \
+                cat #{Shellwords.escape(file_list_path)} | xargs yard list \
                   #{shell_arguments} \
                 --query #{QUERY} \
                 -q \
-                -b #{Shellwords.escape(dir)} \
-                  #{escaped_file_names}
+                -b #{Shellwords.escape(dir)}
               CMD
               cmd = cmd.tr("\n", ' ')
 
