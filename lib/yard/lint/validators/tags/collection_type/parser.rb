@@ -24,18 +24,19 @@ module Yard
                 location_match = location_line.match(/^(.+):(\d+): (.+)$/)
                 next unless location_match
 
-                # Parse details: "tag_name|type_string"
-                details = details_line.split('|', 2)
-                next unless details.size == 2
+                # Parse details: "tag_name|type_string|detected_style"
+                details = details_line.split('|', 3)
+                next unless details.size == 3
 
-                tag_name, type_string = details
+                tag_name, type_string, detected_style = details
 
                 violations << {
                   location: location_match[1],
                   line: location_match[2].to_i,
                   object_name: location_match[3],
                   tag_name: tag_name,
-                  type_string: type_string
+                  type_string: type_string,
+                  detected_style: detected_style
                 }
               end
 

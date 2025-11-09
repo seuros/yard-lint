@@ -1,5 +1,17 @@
 # YARD-Lint Changelog
 
+## 1.0.1 (2025-11-09)
+- **[Feature]** Add `--init` command to generate `.yard-lint.yml` configuration file with sensible defaults
+- **[Feature]** Add `--force` flag to overwrite existing config file when using `--init`
+- **[Feature]** Add `EnforcedStyle` configuration option to `Tags/CollectionType` validator for bidirectional style enforcement
+  - Supports 'long' style: `Hash{K => V}` (default, standard YARD syntax)
+  - Supports 'short' style: `{K => V}` (Ruby-like syntax without Hash prefix)
+  - Automatically detects violations in either direction and suggests correct style
+  - Updated messages to show correct suggestion based on enforced style
+- [Enhancement] Simplify README by condensing alternative style examples
+- [Documentation] Add Quick Start section to README with `--init` command
+- [Documentation] Update CLI help to show new `--init` and `--force` options
+
 ## 1.0.0 (2025-11-09)
 - [Fix] Fix "Argument list too long" error on large codebases by using xargs pattern with temporary file lists
 - [Enhancement] Expand default exclusion patterns to include typical Ruby/Rails directories (test/, log/, coverage/, db/migrate/, etc.)

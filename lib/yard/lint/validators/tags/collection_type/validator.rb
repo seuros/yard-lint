@@ -28,12 +28,14 @@ module Yard
               end
             end
 
-            # YARD query that finds Hash<K, V> syntax in type annotations
+            # YARD query that finds incorrect collection syntax based on EnforcedStyle
             # Format output as two lines per violation:
             #   Line 1: file.rb:LINE: ClassName#method_name
-            #   Line 2: tag_name|type_string
+            #   Line 2: tag_name|type_string|detected_style
             # @return [String] YARD query string
             def query
+              style = enforced_style
+
               <<~QUERY.strip
                 '
                 docstring
@@ -43,10 +45,23 @@ module Yard
                     next unless tag.types
 
                     tag.types.each do |type_str|
-                      # Check for Hash<...> syntax (should be Hash{...})
+                      detected_style = nil
+
+                      # Check for Hash<...> syntax (angle brackets)
                       if type_str =~ /Hash<.*>/
+                        detected_style = "short"
+                      # Check for Hash{...} syntax (curly braces)
+                      elsif type_str =~ /Hash\\{.*\\}/
+                        detected_style = "long"
+                      # Check for {...} syntax without Hash prefix
+                      elsif type_str =~ /^\\{.*\\}$/
+                        detected_style = "short"
+                      end
+
+                      # Report violations based on enforced style
+                      if detected_style && detected_style != "#{style}"
                         puts object.file + ":" + object.line.to_s + ": " + object.title
-                        puts tag.tag_name + "|" + type_str
+                        puts tag.tag_name + "|" + type_str + "|" + detected_style
                         break
                       end
                     end
@@ -55,6 +70,12 @@ module Yard
                 false
                 '
               QUERY
+            end
+
+            # Gets the enforced collection style from configuration
+            # @return [String] 'long' or 'short'
+            def enforced_style
+              config.validator_config('Tags/CollectionType', 'EnforcedStyle') || 'long'
             end
 
             # Array of tag names to validate, formatted for YARD query

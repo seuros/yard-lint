@@ -11,7 +11,8 @@ module Yard
             self.defaults = {
               'Enabled' => true,
               'Severity' => 'convention',
-              'ValidatedTags' => %w[param option return yieldreturn]
+              'ValidatedTags' => %w[param option return yieldreturn],
+              'EnforcedStyle' => 'long' # 'long' (Hash{K => V}) or 'short' ({K => V})
             }.freeze
           end
         end

@@ -55,6 +55,16 @@ gem install yard-lint
 
 ## Usage
 
+### Quick Start
+
+Generate a default configuration file:
+
+```bash
+yard-lint --init
+```
+
+This creates `.yard-lint.yml` with sensible defaults in your current directory.
+
 ### Command Line
 
 Basic usage:
@@ -71,6 +81,10 @@ yard-lint --config config/yard-lint.yml lib/
 
 # Output as JSON
 yard-lint --format json lib/ > report.json
+
+# Generate config file (use --force to overwrite existing)
+yard-lint --init
+yard-lint --init --force
 ```
 
 ## Configuration

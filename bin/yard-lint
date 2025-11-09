@@ -32,6 +32,14 @@ OptionParser.new do |opts|
     options[:progress] = value
   end
 
+  opts.on('--init', 'Generate .yard-lint.yml config file with defaults') do
+    options[:init] = true
+  end
+
+  opts.on('--force', 'Force overwrite when using --init') do
+    options[:force] = true
+  end
+
   opts.on('-v', '--version', 'Show version') do
     puts "yard-lint #{Yard::Lint::VERSION}"
     exit
@@ -42,6 +50,18 @@ OptionParser.new do |opts|
     exit
   end
 end.parse!
+
+# Handle --init flag
+if options[:init]
+  if Yard::Lint::ConfigGenerator.generate(force: options[:force])
+    puts 'Created .yard-lint.yml with default configuration'
+    exit 0
+  else
+    puts 'Error: .yard-lint.yml already exists'
+    puts 'Use --init --force to overwrite'
+    exit 1
+  end
+end
 
 # Get path argument
 path = ARGV[0]

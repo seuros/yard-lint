@@ -74,7 +74,60 @@ RSpec.describe 'CollectionType Integration' do
       expect(offense).not_to be_nil
       expect(offense[:message]).to include('Hash{')
       expect(offense[:message]).to include('=>')
-      expect(offense[:message]).to include('YARD')
+      expect(offense[:message]).to include('long collection syntax')
+    end
+  end
+
+  describe 'when enforcing short style' do
+    let(:short_style_config) do
+      Yard::Lint::Config.new do |c|
+        c.send(:set_validator_config, 'Tags/CollectionType', 'Enabled', true)
+        c.send(:set_validator_config, 'Tags/CollectionType', 'EnforcedStyle', 'short')
+      end
+    end
+
+    it 'finds Hash{K => V} in @param tags' do
+      result = Yard::Lint.run(path: fixture_path, config: short_style_config, progress: false)
+
+      hash_violations = result.offenses.select do |o|
+        o[:name] == 'CollectionType' &&
+          o[:message].include?('Hash{Symbol => String}')
+      end
+
+      expect(hash_violations).not_to be_empty
+    end
+
+    it 'suggests removing Hash prefix' do
+      result = Yard::Lint.run(path: fixture_path, config: short_style_config, progress: false)
+
+      offense = result.offenses.find { |o| o[:name] == 'CollectionType' }
+      expect(offense).not_to be_nil
+      expect(offense[:message]).to include('short collection syntax')
+      expect(offense[:message]).to include('{')
+      expect(offense[:message]).to include('=>')
+    end
+
+    it 'does not flag Hash<> syntax' do
+      result = Yard::Lint.run(path: fixture_path, config: short_style_config, progress: false)
+
+      # Should not have violations for Hash<K, V> when enforcing short
+      offenses = result.offenses.select { |o| o[:name] == 'CollectionType' }
+
+      offenses.each do |offense|
+        expect(offense[:message]).not_to include('Hash<')
+      end
+    end
+
+    it 'does not flag {K => V} syntax' do
+      result = Yard::Lint.run(path: fixture_path, config: short_style_config, progress: false)
+
+      # Should only have violations for Hash{K => V}, not {K => V}
+      offenses = result.offenses.select { |o| o[:name] == 'CollectionType' }
+
+      offenses.each do |offense|
+        # The type_string in the message should be Hash{...}
+        expect(offense[:message]).to include('instead of Hash{')
+      end
     end
   end
 
