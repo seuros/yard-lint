@@ -5,16 +5,14 @@ RSpec.describe Yard::Lint::ConfigGenerator do
     # Use a temporary directory to avoid deleting the project's .yard-lint.yml
     let(:temp_dir) { Dir.mktmpdir }
     let(:config_path) { File.join(temp_dir, '.yard-lint.yml') }
+    let(:original_dir) { Dir.pwd }
 
-    before do
+    around do |example|
       # Change to temp directory for these tests
-      @original_dir = Dir.pwd
-      Dir.chdir(temp_dir)
-    end
-
-    after do
-      # Clean up and return to original directory
-      Dir.chdir(@original_dir)
+      Dir.chdir(temp_dir) do
+        example.run
+      end
+      # Clean up temp directory after test
       FileUtils.rm_rf(temp_dir)
     end
 
