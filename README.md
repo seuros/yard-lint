@@ -31,6 +31,7 @@ YARD-Lint validates your YARD documentation for:
 - **API tag validation**: Enforce @api tags on public objects and validate API values
 - **Abstract method validation**: Ensure @abstract methods don't have real implementations
 - **Option hash documentation**: Validate that methods with options parameters have @option tags
+- **Example code syntax validation**: Validates Ruby syntax in `@example` tags to catch broken code examples
 - **YARD warnings**: Unknown tags, invalid directives, duplicated parameter names, and more
 
 ## Installation

@@ -286,6 +286,102 @@ RSpec.describe 'Yard::Lint Validators' do
     end
   end
 
+  describe 'Example Syntax Validation' do
+    context 'when example_syntax is enabled' do
+      let(:config) do
+        Yard::Lint::Config.new do |c|
+          c.send(:set_validator_config, 'Tags/ExampleSyntax', 'Enabled', true)
+        end
+      end
+
+      it 'runs example syntax validation' do
+        result = Yard::Lint.run(path: 'spec/fixtures/example_syntax.rb', config: config)
+
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+        expect(example_syntax_offenses).not_to be_empty
+        expect(result).to respond_to(:offenses)
+      end
+
+      it 'detects syntax errors in example code blocks' do
+        result = Yard::Lint.run(path: 'spec/fixtures/example_syntax.rb', config: config)
+
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+
+        # Should find the two intentional syntax errors in the fixture
+        expect(example_syntax_offenses.size).to be >= 2
+
+        # Check that error messages are present
+        example_syntax_offenses.each do |offense|
+          expect(offense[:message]).to include('syntax error')
+        end
+      end
+
+      it 'provides detailed error messages with line numbers' do
+        result = Yard::Lint.run(path: 'spec/fixtures/example_syntax.rb', config: config)
+
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+
+        # Check that offenses have proper structure
+        example_syntax_offenses.each do |offense|
+          expect(offense).to have_key(:location)
+          expect(offense).to have_key(:location_line)
+          expect(offense).to have_key(:message)
+          expect(offense[:severity]).to eq('warning')
+        end
+      end
+
+      it 'skips incomplete single-line snippets' do
+        result = Yard::Lint.run(path: 'spec/fixtures/example_syntax.rb', config: config)
+
+        # The multiply method has a single-line incomplete snippet that should be skipped
+        # Only subtract and broken_example should have errors
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+
+        multiply_offenses = example_syntax_offenses.select do |o|
+          o[:message].include?('multiply')
+        end
+
+        expect(multiply_offenses).to be_empty
+      end
+    end
+
+    context 'when example_syntax is disabled' do
+      let(:config) do
+        Yard::Lint::Config.new do |c|
+          c.send(:set_validator_config, 'Tags/ExampleSyntax', 'Enabled', false)
+        end
+      end
+
+      it 'does not run example syntax validation' do
+        result = Yard::Lint.run(path: 'spec/fixtures/example_syntax.rb', config: config)
+
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+        expect(example_syntax_offenses).to be_empty
+      end
+    end
+
+    context 'with valid examples' do
+      let(:config) do
+        Yard::Lint::Config.new do |c|
+          c.send(:set_validator_config, 'Tags/ExampleSyntax', 'Enabled', true)
+          # Disable other validators to isolate test
+          c.send(:set_validator_config, 'Tags/Order', 'Enabled', false)
+        end
+      end
+
+      it 'does not report errors for files without examples' do
+        result = Yard::Lint.run(path: 'spec/fixtures/clean_code.rb', config: config)
+
+        example_syntax_offenses = result.offenses.select { |o| o[:name] == 'ExampleSyntax' }
+        # clean_code.rb has no @example tags at all
+        clean_code_offenses = example_syntax_offenses.select do |o|
+          o[:location].include?('clean_code.rb')
+        end
+        expect(clean_code_offenses).to be_empty
+      end
+    end
+  end
+
   describe 'All Validators Enabled' do
     let(:config) do
       Yard::Lint::Config.new do |c|
@@ -305,6 +401,7 @@ RSpec.describe 'Yard::Lint Validators' do
         c.send(:set_validator_config, 'Warnings/DuplicatedParameterName', 'Enabled', true)
         c.send(:set_validator_config, 'Warnings/UnknownParameterName', 'Enabled', true)
         c.send(:set_validator_config, 'Semantic/AbstractMethods', 'Enabled', true)
+        c.send(:set_validator_config, 'Tags/ExampleSyntax', 'Enabled', true)
       end
     end
 

@@ -7,6 +7,9 @@
 /spec/reports/
 /tmp/
 
+# YARD databases (including test fixtures)
+**/.yardoc
+
 # rspec failure tracking
 .rspec_status
 
