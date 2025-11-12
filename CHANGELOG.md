@@ -1,5 +1,8 @@
 # YARD-Lint Changelog
 
+## 1.2.1 (2025-11-12)
+- [Fix] Fix help text examples showing incorrect argument order (options before PATH instead of PATH before options)
+
 ## 1.2.0 (2025-11-12)
 - **[Fix]** Add Ruby 3.5+ compatibility without requiring IRB gem dependency
   - Ruby 3.5 moved IRB out of default gems, requiring explicit installation
